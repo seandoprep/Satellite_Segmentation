@@ -10,12 +10,12 @@ import albumentations as A
 from tqdm import tqdm
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
-from models.deeplabv3plus import DeepLabV3Plus
-from models.unet import UNet
-from models.multi_unet import MS_UNet
-from models.resunetplusplus import ResUnetPlusPlus
-from models.mdoaunet import MDOAU_net
-from models.u2net import U2NET
+from models.models.deeplabv3plus import DeepLabV3Plus
+from models.models.unet import UNet
+from models.models.multi_unet import MS_UNet
+from models.models.resunetplusplus import ResUnetPlusPlus
+from models.models.mdoaunet import MDOAU_net
+from models.models.u2net import U2NET
 
 from dataset import SatelliteDataset
 from utils.util import set_seed, gpu_test

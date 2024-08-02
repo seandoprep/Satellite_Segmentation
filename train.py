@@ -19,12 +19,12 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast, GradScaler
 from dataset import SatelliteDataset
-from models.deeplabv3plus import DeepLabV3Plus
-from models.unet import UNet
-from models.resunetplusplus import ResUnetPlusPlus
-from models.mdoaunet import MDOAU_net
-from models.u2net import U2NET
-from models.raftnet import RaftNet
+from models.models.deeplabv3plus import DeepLabV3Plus
+from models.models.unet import UNet
+from models.models.resunetplusplus import ResUnetPlusPlus
+from models.models.mdoaunet import MDOAU_net
+from models.models.u2net import U2NET
+from models.models.raftnet import RaftNet
 
 from loss import DiceLoss, DiceBCELoss, IoULoss, FocalLoss, TverskyLoss
 from utils.util import gpu_test, set_seed, count_parameters

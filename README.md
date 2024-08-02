@@ -1,5 +1,3 @@
-![header](https://capsule-render.vercel.app/api?type=waving&color=0:F9D976,100:F39F86&height=250&section=header&text=YAI%20x%20Alchera&fontSize=45&animation=fadeIn&fontColor=FFFFFF&fontAlignY=40)
-
 > Code is still on working. Please wait for final version. However, you can run demo code using the instructions below and your own data
 
 ## Requirements
@@ -110,8 +108,3 @@ data
 ## Qualitative results
 
 </br>
-
-
-<p align="center"><a href="#">
-    <img src="https://capsule-render.vercel.app/api?type=waving&color=0:F9D976,100:F39F86&height=150&section=footer" alt="header" />
-</a></p>

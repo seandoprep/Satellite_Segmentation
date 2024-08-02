@@ -1,4 +1,4 @@
-> Code is still on working. Please wait for final version. However, you can run demo code using the instructions below and your own data
+> Code is still on working. Please wait for final version.
 
 ## Requirements
 </br>

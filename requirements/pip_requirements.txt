@@ -1,0 +1,80 @@
+albumentations==1.3.1
+attrs @ file:///opt/conda/conda-bld/attrs_1642510447205/work
+branca @ file:///home/conda/feedstock_root/build_artifacts/branca_1714071803448/work
+Brotli @ file:///C:/Windows/Temp/abs_63l7912z0e/croots/recipe/brotli-split_1659616056886/work
+certifi @ file:///C:/b/abs_36eb5mzhph/croot/certifi_1690232276943/work/certifi
+cffi @ file:///C:/b/abs_49n3v2hyhr/croot/cffi_1670423218144/work
+cftime==1.6.3
+chardet==5.2.0
+charset-normalizer @ file:///tmp/build/80754af9/charset-normalizer_1630003229654/work
+click==8.0.3
+click-plugins @ file:///Users/ktietz/demo/mc3/conda-bld/click-plugins_1630665883852/work
+cligj==0.7.2
+colorama==0.4.6
+contourpy==1.2.0
+cryptography @ file:///C:/b/abs_f4do8t8jfs/croot/cryptography_1694444424531/work
+cycler @ file:///tmp/build/80754af9/cycler_1637851556182/work
+einops==0.6.1
+filelock==3.12.2
+Fiona==1.9.1
+folium @ file:///home/conda/feedstock_root/build_artifacts/folium_1709209270269/work
+fonttools==4.25.0
+GDAL==3.6.2
+geopandas @ file:///home/conda/feedstock_root/build_artifacts/geopandas_1704438924015/work
+idna @ file:///C:/b/abs_bdhbebrioa/croot/idna_1666125572046/work
+imageio==2.31.1
+importlib-resources @ file:///home/conda/feedstock_root/build_artifacts/importlib_resources_1699364556997/work
+importlib_metadata==7.1.0
+Jinja2 @ file:///C:/b/abs_7cdis66kl9/croot/jinja2_1666908141852/work
+joblib==1.3.1
+kiwisolver @ file:///D:/bld/kiwisolver_1695380110085/work
+lazy_loader==0.3
+mapclassify @ file:///tmp/build/80754af9/mapclassify_1627369494639/work
+MarkupSafe @ file:///C:/ci/markupsafe_1654508077284/work
+matplotlib==3.8.2
+mkl-fft @ file:///C:/b/abs_19i1y8ykas/croot/mkl_fft_1695058226480/work
+mkl-random @ file:///C:/b/abs_edwkj1_o69/croot/mkl_random_1695059866750/work
+mkl-service==2.4.0
+mpmath @ file:///C:/b/abs_7833jrbiox/croot/mpmath_1690848321154/work
+munch @ file:///Users/ktietz/demo/mc3/conda-bld/munch_1630566382504/work
+netCDF4==1.6.5
+networkx @ file:///C:/b/abs_e6gi1go5op/croot/networkx_1690562046966/work
+numpy==1.25.1
+opencv-python==4.8.0.74
+opencv-python-headless==4.8.0.74
+packaging @ file:///tmp/build/80754af9/packaging_1637314298585/work
+pandas==2.1.3
+Pillow==10.0.0
+pycparser @ file:///tmp/build/80754af9/pycparser_1636541352034/work
+pyOpenSSL @ file:///C:/b/abs_08f38zyck4/croot/pyopenssl_1690225407403/work
+pyparsing @ file:///tmp/build/80754af9/pyparsing_1635766073266/work
+pyproj @ file:///D:/bld/pyproj_1702028185868/work
+PySocks @ file:///C:/ci/pysocks_1605307512533/work
+python-dateutil @ file:///tmp/build/80754af9/python-dateutil_1626374649649/work
+pytz==2021.3
+PyWavelets==1.4.1
+PyYAML @ file:///C:/b/abs_782o3mbw7z/croot/pyyaml_1698096085010/work
+qudida==0.0.4
+requests @ file:///C:/b/abs_316c2inijk/croot/requests_1690400295842/work
+Rtree @ file:///D:/bld/rtree_1705698060554/work
+scikit-image==0.21.0
+scikit-learn==1.3.0
+scipy==1.11.1
+shapely @ file:///C:/b/abs_e8n_rzfcjr/croot/shapely_1680636303476/work
+six @ file:///tmp/build/80754af9/six_1644875935023/work
+spectral==0.23.1
+sympy @ file:///C:/b/abs_95fbf1z7n6/croot/sympy_1668202411612/work
+threadpoolctl @ file:///Users/ktietz/demo/mc3/conda-bld/threadpoolctl_1629802263681/work
+tifffile==2023.7.18
+torch==2.0.1+cu117
+torchaudio==2.0.2+cu117
+torchsummary==1.5.1
+torchvision==0.15.2+cu117
+tqdm==4.65.0
+typing_extensions @ file:///C:/b/abs_213vg2cd1l/croot/typing_extensions_1690297804941/work
+tzdata @ file:///croot/python-tzdata_1690578112552/work
+urllib3 @ file:///C:/b/abs_9cmlsrm3ys/croot/urllib3_1698257595508/work
+win-inet-pton @ file:///C:/ci/win_inet_pton_1605306162074/work
+xarray==2024.2.0
+xyzservices @ file:///home/conda/feedstock_root/build_artifacts/xyzservices_1712209912887/work
+zipp==3.17.0

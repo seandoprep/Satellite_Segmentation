@@ -24,7 +24,7 @@ from models.models.unet import UNet
 from models.models.resunetplusplus import ResUnetPlusPlus
 from models.models.mdoaunet import MDOAU_net
 from models.models.u2net import U2NET
-from models.models.raftnet import RaftNet
+from models.models.attent_unet import AttU_Net
 
 from loss import DiceLoss, DiceBCELoss, IoULoss, FocalLoss, TverskyLoss
 from utils.util import gpu_test, set_seed, count_parameters
@@ -44,7 +44,7 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='raftnet',
+    default='attentunet',
     help="Choose models for Binary Segmentation.",
 )
 @click.option(
@@ -58,14 +58,14 @@ CLASSES = 1  # For Binary Segmentatoin
     "-L",
     "--learning-rate",
     type=float,
-    default=0.001,
+    default=1e-3,
     help="Learning Rate for model. Default - 1e-3",
 )
 @click.option(
     "-B",
     "--batch-size",
     type=int,
-    default=4,
+    default=8,
     help="Batch size of data for training. Default - 8",
 )
 @click.option(
@@ -131,9 +131,9 @@ def main(
     elif model_name == 'u2net':
         model = U2NET(in_channel=INPUT_CHANNEL_NUM, num_classes=CLASSES)
         print("Model : U2-Net")
-    elif model_name == 'raftnet':
-        model = RaftNet(in_channel=INPUT_CHANNEL_NUM, num_classes=CLASSES)
-        print("Model : RaftNet")    
+    elif model_name == 'attentunet':
+        model = AttU_Net(in_channel=INPUT_CHANNEL_NUM, num_classes=CLASSES)
+        print("Model : Attention U-Net")    
 
 
     # Check GPU Availability & Set Model
@@ -154,6 +154,9 @@ def main(
     # Optimizer & Scheduler Setting
     optimizer = optim.Adam(model.parameters(), lr = learning_rate)
     #scheduler = CosineAnnealingWarmUpRestarts(optimizer, T_0=150, T_mult=1, eta_max=0.1,  T_up=10, gamma=0.5)
+    #scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer,
+    #                                    lr_lambda=lambda epoch: 0.95 ** epoch)
+    #scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
     # For Early-Stopping
     patience_epochs = 50
@@ -206,54 +209,50 @@ def main(
             current_lr = optimizer.param_groups[0]["lr"]
 
             iter = 0
-            scaler = GradScaler() # Mixed-Precision method
             for images, masks in train_dataloader:
-                with autocast():
-                    images, masks = images.to(device), masks.to(device)
+                images, masks = images.to(device), masks.to(device)
 
-                    optimizer.zero_grad()
+                optimizer.zero_grad()
+        
+                outputs = model(images)
+
+                # Visualize train process
+                if epoch % 20 == 0:
+                    visualize_train(images, outputs, masks, 
+                                img_save_path= 'outputs/train_output', 
+                                epoch = str(epoch), iter = str(iter))
+
+                t_loss = criterion(outputs, masks)
+                t_loss.backward()
+
+                optimizer.step()
+
+                train_loss += t_loss.item()
+                iter += 1
                 
-                    outputs = model(images)
-
-                    # Visualize train process
-                    if epoch % 20 == 0:
-                        visualize_train(images, outputs, masks, 
-                                    img_save_path= 'outputs/train_output', 
-                                    epoch = str(epoch), iter = str(iter))
-
-                    t_loss = criterion(outputs, masks)
-                    scaler.scale(t_loss).backward()
-                    scaler.step(optimizer)
-                    scaler.update()
-
-                    optimizer.step()
-
-                    train_loss += t_loss.item()
-                    iter += 1
-                    
-                    # Calculating metrics for training
-                    with torch.no_grad():
-                        pred_masks = outputs > 0.5
-                        iou_train, pixel_accuracy_train, precision_train, recall_train, f1_train = calculate_metrics(
-                            pred_masks, masks
-                        )
-
-                        total_iou_train += iou_train
-                        total_pixel_accuracy_train += pixel_accuracy_train
-                        total_precision_train += precision_train
-                        total_recall_train += recall_train
-                        total_f1_train += f1_train
-
-                    # Displaying metrics in the progress bar description
-                    train_dataloader.set_postfix(
-                        loss=t_loss.item(),
-                        train_iou=iou_train,
-                        train_pix_acc=pixel_accuracy_train,
-                        train_precision=precision_train,
-                        train_recall=recall_train,
-                        train_f1=f1_train,
-                        lr=current_lr,
+                # Calculating metrics for training
+                with torch.no_grad():
+                    pred_masks = outputs > 0.5
+                    iou_train, pixel_accuracy_train, precision_train, recall_train, f1_train = calculate_metrics(
+                        pred_masks, masks
                     )
+
+                    total_iou_train += iou_train
+                    total_pixel_accuracy_train += pixel_accuracy_train
+                    total_precision_train += precision_train
+                    total_recall_train += recall_train
+                    total_f1_train += f1_train
+
+                # Displaying metrics in the progress bar description
+                train_dataloader.set_postfix(
+                    loss=t_loss.item(),
+                    train_iou=iou_train,
+                    train_pix_acc=pixel_accuracy_train,
+                    train_precision=precision_train,
+                    train_recall=recall_train,
+                    train_f1=f1_train,
+                    lr=current_lr,
+                )
 
             train_loss /= len(train_dataloader)
             avg_iou_train = total_iou_train / len(train_dataloader)
@@ -261,6 +260,8 @@ def main(
             avg_precision_train = total_precision_train / len(train_dataloader)
             avg_recall_train = total_recall_train / len(train_dataloader)
             avg_f1_train = total_f1_train / len(train_dataloader)
+
+            #scheduler.step(t_loss)
 
             # VALIDATION
             model.eval()
@@ -282,7 +283,7 @@ def main(
                     val_loss += v_loss.item()
 
                     # Calculating metrics for Validation
-                    pred_masks = outputs > 0.7
+                    pred_masks = outputs > 0.5
                     iou_val, pixel_accuracy_val, precision_val, recall_val, f1_val = calculate_metrics(
                         pred_masks, masks
                     )

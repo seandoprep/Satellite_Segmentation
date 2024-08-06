@@ -12,7 +12,6 @@ from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 from models.models.deeplabv3plus import DeepLabV3Plus
 from models.models.unet import UNet
-from models.models.multi_unet import MS_UNet
 from models.models.resunetplusplus import ResUnetPlusPlus
 from models.models.mdoaunet import MDOAU_net
 from models.models.u2net import U2NET
@@ -34,7 +33,7 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='unet',
+    default='resunetplusplus',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, and transunet are now available.",
 )
 @click.option(

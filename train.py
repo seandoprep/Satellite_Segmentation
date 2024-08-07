@@ -156,7 +156,7 @@ def main(
     #scheduler = CosineAnnealingWarmUpRestarts(optimizer, T_0=150, T_mult=1, eta_max=0.1,  T_up=10, gamma=0.5)
     #scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer,
     #                                    lr_lambda=lambda epoch: 0.95 ** epoch)
-    #scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
     # For Early-Stopping
     patience_epochs = 50

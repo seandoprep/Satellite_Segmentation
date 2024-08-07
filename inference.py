@@ -18,6 +18,7 @@ from models.models.unet import UNet
 from models.models.resunetplusplus import ResUnetPlusPlus
 from models.models.mdoaunet import MDOAU_net
 from models.models.u2net import U2NET
+from models.models.attent_unet import AttU_Net
 
 from dataset import InferenceDataset
 from utils.util import set_seed, gpu_test, unpad, read_envi_file, restore_img, remove_noise
@@ -40,7 +41,7 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='resunetplusplus',
+    default='attentunet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, and transunet are now available.",
 )
 @click.option(
@@ -102,6 +103,9 @@ def main(
     elif model_name == 'u2net':
         model = U2NET(in_channel=INPUT_CHANNEL_NUM, num_classes=CLASSES)
         print("Model : U2-Net")
+    elif model_name == 'attentunet':
+        model = AttU_Net(in_channel=INPUT_CHANNEL_NUM, num_classes=CLASSES)
+        print("Model : Attention U-Net")    
 
     # Load Trained Model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

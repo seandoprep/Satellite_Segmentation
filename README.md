@@ -8,10 +8,8 @@
 - Code will be updated constantly. If you have any advice or questions, please feel free to contact me via email(sean3819@yonsei.ac.kr).
 
 ## Requirements
-</br>
-
 ### Conda virtual environment setup (recommend python 3.9.18.ver )
-
+</br>
 ```
 conda create -n [environment name] --file [this file]
 conda activate [environment name]
@@ -26,9 +24,9 @@ git clone https://github.com/seandoprep/Satellite_Segmentation.git
 
 Clone this repo into your own computer. You can just create data directory by yourself. 
 
-</br>
-
 And finally the directory hierarchy is configured as,
+
+</br>
 
 ```
 Satellite_Segmentation
@@ -60,21 +58,19 @@ Satellite_Segmentation
 ├─test.py
 ├─inference.py
 └─requirements.txt
-
 ```
+</br>
 
 ---
 
 ## Dataset
-</br>
-
 ### Data Format
 - Currently, this code can only handle ENVI type Satellite images. 
 - Code for handling other types of data(netcdf, tiff, etc..) will also be added
 - Data should be large original satellite image without cutting. Built-in algorithm will divide Large original images into 256 width, height images.
 - original nc data needs for extracting lat/lon information.
 - Using all of the huge satellite data can lead to a data distribution imbalance problem. 
-- Therefore, after sampling the deep learning data based on the target mask, the data of the non-target area may be randomly added.
+- Therefore, after sampling the deep learning data based on the target mask, the data of the non-target area(Where target object doesn't exist) may be randomly added.
 
 ```
 data
@@ -102,33 +98,33 @@ data
 ## Train/Test/Inference
 
 ### Supported model
-
 - In order to handle multi-channel data, I add some feature extractor block in front of some models. 
 - U-Net, U2-Net, DeepLabv3+, ResUNet++, Attention U-Net, Mdoaunet, RaftNet are now available
 
 ### Train
 </br>
+```
 python train.py -D [data directory] -M [model name] -E [num epochs] -L [learning rate] -B [batch size] -S [early stop]
+```
 </br>
 
 ### Test
 </br>
+```
 python test.py -D [data directory] -M [model name] -P [model path]
+```
 </br>
 
 ### Inference
 </br>
+```
 python train.py -D [data directory] -M [model name] -P [model path] -B [batch size]
+```
 </br>
 
 ### Performance(will be added) : 
-</br>
-
 
 ## Qualitative results(will be added)
-
-</br>
-
 
 ## Reference(will be added)
 Thanks to,

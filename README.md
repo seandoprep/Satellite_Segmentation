@@ -9,7 +9,6 @@
 
 ## Requirements
 ### Conda virtual environment setup (recommend python 3.9.18.ver )
-</br>
 ```
 conda create -n [environment name] --file [this file]
 conda activate [environment name]
@@ -102,21 +101,18 @@ data
 - U-Net, U2-Net, DeepLabv3+, ResUNet++, Attention U-Net, Mdoaunet, RaftNet are now available
 
 ### Train
-</br>
 ```
 python train.py -D [data directory] -M [model name] -E [num epochs] -L [learning rate] -B [batch size] -S [early stop]
 ```
 </br>
 
 ### Test
-</br>
 ```
 python test.py -D [data directory] -M [model name] -P [model path]
 ```
 </br>
 
 ### Inference
-</br>
 ```
 python train.py -D [data directory] -M [model name] -P [model path] -B [batch size]
 ```

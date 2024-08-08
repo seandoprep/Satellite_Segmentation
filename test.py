@@ -38,7 +38,7 @@ CLASSES = 1  # For Binary Segmentatoin
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
-    "-S",
+    "-P",
     "--model-path",
     type=str,
     default='./weights/train_result/best_model.pth',

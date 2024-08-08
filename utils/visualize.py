@@ -64,6 +64,8 @@ def visualize_test(
     '''
     Visualize test process per image and Save it(For 3 band data).
     '''
+
+    # Get data
     original_img_cpu = original_img[0].cpu().numpy()
     pred_mask_binary = F.sigmoid(pred_mask[0, 0]) > 0.5
     pred = pred_mask_binary.cpu().detach().numpy()

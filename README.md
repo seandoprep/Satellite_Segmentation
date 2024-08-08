@@ -13,7 +13,6 @@
 conda create -n [environment name] --file [this file]
 conda activate [environment name]
 ```
-</br>
 
 ### Git clone repo
 
@@ -58,8 +57,6 @@ Satellite_Segmentation
 ├─inference.py
 └─requirements.txt
 ```
-</br>
-
 ---
 
 ## Dataset
@@ -88,12 +85,11 @@ data
 └──    └──    └──    └── original.nc
 
 ```
-</br>
 
 ### Sample data(will be added)
 
 
-
+---
 ## Train/Test/Inference
 
 ### Supported model
@@ -118,12 +114,16 @@ python train.py -D [data directory] -M [model name] -P [model path] -B [batch si
 ```
 </br>
 
-### Performance(will be added) : 
+---
+## Performance(will be added) : 
 
+---
 ## Qualitative results(will be added)
 
+---
 ## Reference(will be added)
 Thanks to,
+</br>
 https://github.com/usuyama/pytorch-unet
 https://github.com/xuebinqin/U-2-Net
 https://github.com/rishikksh20/ResUnet

@@ -37,6 +37,9 @@ class DiceBCELoss(nn.Module):
 
     def forward(self, pred_mask: Any, true_mask: Any) -> torch.Tensor:      
         #flatten label and prediction tensors
+
+        pred_mask = F.sigmoid(pred_mask)
+
         pred_mask = pred_mask.view(-1).float()
         true_mask = true_mask.view(-1).float()
 
@@ -57,6 +60,9 @@ class IoULoss(nn.Module):
 
     def forward(self, pred_mask: Any, true_mask: Any) -> torch.Tensor:
         #flatten label and prediction tensors
+
+        pred_mask = F.sigmoid(pred_mask)
+
         pred_mask = pred_mask.view(-1).float()
         true_mask = true_mask.view(-1).float()
         
@@ -77,6 +83,9 @@ class FocalLoss(nn.Module):
 
     def forward(self, pred_mask: Any, true_mask: Any, alpha=0.8, gamma=2):
         #flatten label and prediction tensors
+
+        pred_mask = F.sigmoid(pred_mask)
+        
         pred_mask = pred_mask.view(-1).float()
         true_mask = true_mask.view(-1).float()
         
@@ -94,6 +103,9 @@ class TverskyLoss(nn.Module):
 
     def forward(self, pred_mask: Any, true_mask: Any, alpha=0.5, beta=0.5):
         #flatten label and prediction tensors
+
+        pred_mask = F.sigmoid(pred_mask)
+        
         pred_mask = pred_mask.view(-1).float()
         true_mask = true_mask.view(-1).float()
         

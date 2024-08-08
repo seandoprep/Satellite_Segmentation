@@ -17,7 +17,6 @@ torch.cuda.empty_cache()
 from albumentations.pytorch import ToTensorV2
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from torch.cuda.amp import autocast, GradScaler
 from dataset import SatelliteDataset
 from models.models.deeplabv3plus import DeepLabV3Plus
 from models.models.unet import UNet
@@ -44,8 +43,8 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='attentunet',
-    help="Choose models for Binary Segmentation.",
+    default='mdoaunet',
+    help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
     "-E",
@@ -261,7 +260,7 @@ def main(
             avg_recall_train = total_recall_train / len(train_dataloader)
             avg_f1_train = total_f1_train / len(train_dataloader)
 
-            #scheduler.step(t_loss)
+            scheduler.step(t_loss)
 
             # VALIDATION
             model.eval()
@@ -312,7 +311,7 @@ def main(
             avg_recall_val = total_recall_val / len(val_dataloader)
             avg_f1_val = total_f1_val / len(val_dataloader)
 
-            #scheduler.step(val_loss)
+            scheduler.step(val_loss)
 
             print(
                 f"{'-'*50}"

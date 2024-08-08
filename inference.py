@@ -41,8 +41,8 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='attentunet',
-    help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, and transunet are now available.",
+    default='mdoaunet',
+    help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
     "-S",

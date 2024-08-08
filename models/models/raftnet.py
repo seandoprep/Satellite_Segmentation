@@ -8,7 +8,7 @@ from models.modules.raftnet_modules import Dual_Channel_Block, Res_HDC
 from torch.utils.checkpoint import checkpoint
 
 '''
-Model from https://www.mdpi.com/2072-4292/14/18/4587
+Model architecture from https://www.mdpi.com/2072-4292/14/18/4587
 '''
 
 # RaftNet main architecture

@@ -56,7 +56,7 @@ class MDOAU_net(nn.Module):
 
         self.Conv_1x1_1 = nn.Conv2d(8, num_classes, kernel_size=1, stride=1, padding=0)
 
-    def forward(self, x, train_flag=False):
+    def forward(self, x, train_flag=True):
         # multi_scale_generator
         x_pre_1 = self.multi_scale_1(x)
         x_pre_2 = self.multi_scale_2(x)

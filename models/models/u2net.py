@@ -2,6 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+'''
+Model Code from https://github.com/xuebinqin/U-2-Net
+'''
+
 class REBNCONV(nn.Module):
     def __init__(self,in_ch=3,out_ch=3,dirate=1):
         super(REBNCONV,self).__init__()

@@ -7,7 +7,7 @@ from utils.util import pad_crop, read_envi_file, find_arrays_with_object, set_se
 
 @click.command()
 @click.option("-D", "--data-dir", type=str, default='data\\Train\\ENVI', help="Path for Data Directory")
-@click.option("-T", "--viz-type", type=str, default='cropped', help="Visualize Type")
+@click.option("-T", "--viz-type", type=str, default='norm', help="Visualize Type")
 
 
 def main(
@@ -23,11 +23,13 @@ def main(
     viz_type = viz_type
     image_dir = os.path.join(data_dir, "Image")
     mask_dir = os.path.join(data_dir, "Mask")
-    band_labels = ['NDWI', 'FAI', 'NDCI']
+    band_names = [x.split('.')[0] for x in os.listdir(image_dir)]
+    band_names = sorted(list(set(band_names)))
 
     set_seed(80)
 
-    if viz_type == 'cropped':
+    # Visualize Normalization Result
+    if viz_type == 'norm':
         # Read Image, Mask
         linear_norm_list = pad_crop(read_envi_file(image_dir, True, 'linear_norm'), 224)
         dynamic_norm_list = pad_crop(read_envi_file(image_dir, True, 'dynamic_world_norm'), 224)
@@ -36,8 +38,6 @@ def main(
         
         # Random Sampling
         indices = find_arrays_with_object(mask_list)
-        print(len(indices))
-
         np.random.shuffle(indices)
         sample = indices[4]
 
@@ -54,7 +54,7 @@ def main(
             true_mask = mask_np[0,:,:]
 
             results = [org_band, linear_norm, dynamic_world_norm, true_mask]
-            labels = [band_labels[i], 'Linear Normalization', 'Dynamic Normalization', 
+            labels = [band_names[i], 'Linear Normalization', 'Dynamic Normalization', 
                     'True Mask']
             
             for j in range(rows):
@@ -63,17 +63,17 @@ def main(
                 plt.axis('off')
                 plt.title(labels[j])
 
+    # Visualize Band Histogram
     elif viz_type == 'band_histogram':
         # Read Image, Mask
         linear_norm_np = read_envi_file(image_dir, True, 'linear_norm')
         dynamic_world_norm_np = read_envi_file(image_dir, True, 'dynamic_world_norm')
         original_image_np = read_envi_file(image_dir, False, None)
-        viz_range = [[-200,-0.01], [-0.3,-0.01], [0.01,1.0]]
+        viz_range = [[-200,-0.01], [-0.3,-0.01], [0.01,1.0]] # Set viz range for your need
 
         # Calculate Band Histogram and Visualization
         plt.figure(figsize=(90,60))
         cols, rows = 3, 2
-
         for i in range(cols):
             original_image = original_image_np[i,:,:]
 
@@ -97,13 +97,13 @@ def main(
                             color = 'red',
                             label = 'original_image',
                             histtype = 'step')             
-                    plt.title(band_labels[i])     
+                    plt.title(band_names[i])     
                     plt.xlabel('Pixel Values(Reflectance)')
                     plt.ylabel('Frequency')  
                 else:
                     plt.hist([linear_norm_1d, dynamic_world_norm_1d], 
                             bins = 1000,
-                            range = [0.2,0.8],
+                            range = [0.2,0.8], # Set viz range for your need
                             color = ['green', 'blue'],
                             label = [ 'linear_norm', 'dynamic_world_norm'],
                             histtype = 'step',
@@ -114,7 +114,7 @@ def main(
                 plt.xlim()
                 plt.ylim()
                 plt.legend(loc='upper left')
-    
+
     plt.subplots_adjust(left=0.125, bottom=0.1,  right=0.9, top=0.9, wspace=0.2, hspace=0.417)         
     plt.show()
     click.secho(message="🚀 End Visualizing...", fg="red", nl=True)

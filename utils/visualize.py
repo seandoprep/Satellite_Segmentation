@@ -38,7 +38,7 @@ def visualize(
     band_names = [x.split('.')[0] for x in os.listdir(data_path)]
     band_names = sorted(list(set(band_names)))
 
-    # Visuzlize
+    # Visualize
     row = 2
     col = int(band_number/2) + 1
     for i in range(len(band_names)):

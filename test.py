@@ -20,7 +20,7 @@ from models.models.attent_unet import AttU_Net
 from dataset import SatelliteDataset
 from utils.util import set_seed, gpu_test
 from utils.metrics import calculate_metrics
-from utils.visualize import visualize_test
+from utils.visualize import visualize
 from datetime import datetime
 
 INPUT_CHANNEL_NUM = 4
@@ -34,7 +34,7 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='attentunet',
+    default='mdoaunet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
@@ -129,8 +129,9 @@ def main(
             output = model(image)
             pred_mask = output > 0.5
 
-            visualize_test(image, output, mask, 
-                        img_save_path= test_output_dir, num = i)
+            visualize(image, output, mask,
+                      img_save_path= test_output_dir, 
+                      epoch='none', iter='none', type='test', num = i)
 
             iou_test, pixel_accuracy_test, precision_test, recall_test, f1_test = calculate_metrics(
                 pred_mask, mask

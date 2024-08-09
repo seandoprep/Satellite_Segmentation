@@ -28,7 +28,7 @@ from models.models.attent_unet import AttU_Net
 from loss import DiceLoss, DiceBCELoss, IoULoss, FocalLoss, TverskyLoss
 from utils.util import gpu_test, set_seed, count_parameters
 from utils.metrics import calculate_metrics
-from utils.visualize import visualize_training_log, visualize_train
+from utils.visualize import visualize_training_log, visualize
 from datetime import datetime
 from scheduler import CosineAnnealingWarmUpRestarts
 
@@ -186,6 +186,19 @@ def main(
         f"\n{click.style(text=f'Train Size: ', fg='blue')}{train_dataset.__len__()}\t{click.style(text=f'val Size: ', fg='blue')}{val_dataset.__len__()}\n"
     )
 
+    # Save train result
+    train_base_dir = 'outputs/train_output'
+    now = datetime.now()
+    folder_name = now.strftime("%Y_%m_%d_%H_%M_%S") + model_name
+    train_output_dir = os.path.join(train_base_dir, folder_name)
+
+    try:
+        os.makedirs(train_output_dir, exist_ok=True)
+        click.secho(message="Train output folder was successfully created\n", fg="blue")
+    except OSError as e:
+        click.secho(message="\n❗ Error\n", fg="red")
+        sys.exit("OSError while creating output data dir")
+
     # Main loop
     with open(csv_file_path, "w", newline="") as f:
         csv_writer = csv.writer(f)
@@ -217,9 +230,10 @@ def main(
 
                 # Visualize train process
                 if epoch % 20 == 0:
-                    visualize_train(images, outputs, masks, 
-                                img_save_path= 'outputs/train_output', 
-                                epoch = str(epoch), iter = str(iter))
+                    visualize(images, outputs, masks,
+                              img_save_path= train_output_dir,
+                              epoch = str(epoch), iter = str(iter),
+                              type='train', num = None)
 
                 t_loss = criterion(outputs, masks)
                 t_loss.backward()
@@ -381,23 +395,9 @@ def main(
 
     click.secho(message="🎉 Training Done!", fg="blue", nl=True)
 
-    # Save train result
-    train_base_dir = 'outputs/train_output'
-    now = datetime.now()
-    folder_name = now.strftime("%Y_%m_%d_%H_%M_%S") + model_name
-    train_output_dir = os.path.join(train_base_dir, folder_name)
-
-    try:
-        os.makedirs(train_output_dir, exist_ok=True)
-        click.secho(message="Train output folder was successfully created\n", fg="blue")
-    except OSError as e:
-        click.secho(message="\n❗ Error\n", fg="red")
-        sys.exit("OSError while creating output data dir")
-
     visualize_training_log(csv_file_path, train_output_dir)
 
     return
-
 
 if __name__ == "__main__":
     main()

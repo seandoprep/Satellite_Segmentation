@@ -11,60 +11,19 @@ warnings.filterwarnings('ignore')
 from typing import Any
 
 
-def visualize_train( 
+def visualize( 
         original_img: Any,
         pred_mask: Any,
         true_mask: Any,
         img_save_path : str,
         epoch : str,
         iter : str,
+        type : str,
+        num
         ) -> None:
     '''
-    Visualize training process per epoch and Save it(For 3 band data).
+    Visualize training process per epoch and Save it
     '''
-    original_img_cpu = original_img[0].cpu().numpy()
-    pred_mask_binary = F.sigmoid(pred_mask[0, 0]) > 0.5
-    pred = pred_mask_binary.cpu().detach().numpy()
-    pred = np.expand_dims(pred, axis=2)
-    true = true_mask[0].cpu().detach().numpy()
-
-    # Visuzlize
-    band_number = original_img_cpu.shape[0]
-
-    plt.figure(figsize=(28,16))
-    band_names = ['NDCI', 'NDWI', 'NIR', 'RED']
-    for i in range(band_number):
-        band = original_img_cpu[i,:,:]
-        plt.subplot(3, 3, i+1)
-        plt.imshow(band, cmap='gray')
-        plt.title('{}'.format(band_names[i]))
-
-
-    # Prediction
-    plt.subplot(3, 3, band_number+1)
-    plt.imshow(pred, cmap='gray')
-    plt.title('Prediction')
-
-    # True Mask
-    plt.subplot(3, 3, band_number+2)
-    plt.imshow(true, cmap='gray')
-    plt.title('True Mask')
-
-    plt.savefig(os.path.join(img_save_path, 'Training_result_epoch_{}_iter_{}.png'.format(epoch, iter)))
-    plt.close()
-
-
-def visualize_test( 
-        original_img: Any,
-        pred_mask: Any,
-        true_mask: Any,
-        img_save_path : str,
-        num : int
-        ) -> None:
-    '''
-    Visualize test process per image and Save it(For 3 band data).
-    '''
-
     # Get data
     original_img_cpu = original_img[0].cpu().numpy()
     pred_mask_binary = F.sigmoid(pred_mask[0, 0]) > 0.5
@@ -72,29 +31,38 @@ def visualize_test(
     pred = np.expand_dims(pred, axis=2)
     true = true_mask[0].cpu().detach().numpy()
 
-    # Visuzlize
+    # Read Band Information
     band_number = original_img_cpu.shape[0]
+    plt.figure(figsize=(20,12))
+    data_path = "data\Train\ENVI\Image"
+    band_names = [x.split('.')[0] for x in os.listdir(data_path)]
+    band_names = sorted(list(set(band_names)))
 
-    plt.figure(figsize=(28,16))
-    band_names = ['NDCI', 'NDWI', 'NIR', 'RED']
-
-    for i in range(band_number):
+    # Visuzlize
+    row = 2
+    col = int(band_number/2) + 1
+    for i in range(len(band_names)):
         band = original_img_cpu[i,:,:]
-        plt.subplot(3, 3, i+1)
+        plt.subplot(row, col, i+1)
         plt.imshow(band, cmap='gray')
         plt.title('{}'.format(band_names[i]))
 
     # Prediction
-    plt.subplot(3, 3, band_number+1)
+    plt.subplot(row, col, band_number+1)
     plt.imshow(pred, cmap='gray')
     plt.title('Prediction')
 
     # True Mask
-    plt.subplot(3, 3, band_number+2)
+    plt.subplot(row, col, band_number+2)
     plt.imshow(true, cmap='gray')
     plt.title('True Mask')
 
-    plt.savefig(os.path.join(img_save_path, 'Test_result_{}.png'.format(num)))
+    # img save
+    if type == 'train':
+        filename = 'Training_result_epoch_{}_iter_{}.png'.format(epoch, iter)
+    else:
+        filename = 'Test_result_{}.png'.format(num)
+    plt.savefig(os.path.join(img_save_path, filename))
     plt.close()
 
 
@@ -116,7 +84,6 @@ def visualize_training_log(training_logs_csv: str, img_save_path: str):
     recall_val = training_log['Avg Recall Val']
     f1_train = training_log['Avg F1 Train']
     f1_val = training_log['Avg F1 Val']
-    lr = training_log['Learning Rate']
 
     plt.figure(figsize=(28,16))
 

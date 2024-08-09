@@ -98,7 +98,7 @@ python band_analysis.py -D [data directory] -T [visualize type : norm]
 
 ### Normalization Result
 - Linear Norm & Dynamic World Norm is now available
-<img src="https://github.com/seandoprep/Satellite_Segmentation/images/norm_result.png>
+<img src="https://github.com/seandoprep/Satellite_Segmentation/images/norm_result.png">
 
 ---
 ## Train/Test/Inference

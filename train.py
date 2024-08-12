@@ -32,18 +32,18 @@ from utils.visualize import visualize_training_log, visualize
 from datetime import datetime
 from scheduler import CosineAnnealingWarmUpRestarts
 
-INPUT_CHANNEL_NUM = 4
+INPUT_CHANNEL_NUM = 3
 INPUT = (256, 256)
 CLASSES = 1  # For Binary Segmentatoin
 
 
 @click.command()
-@click.option("-D", "--data-dir", type=str, default='data\\Train\\ENVI', help="Path for Data Directory")
+@click.option("-D", "--data-dir", type=str, default='data\\Train', help="Path for Data Directory")
 @click.option(
     "-M",
     "--model-name",
     type=str,
-    default='mdoaunet',
+    default='attentunet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
@@ -151,7 +151,9 @@ def main(
     #criterion = TverskyLoss()
 
     # Optimizer & Scheduler Setting
-    optimizer = optim.Adam(model.parameters(), lr = learning_rate)
+    optimizer = optim.AdamW(model.parameters(), lr = learning_rate)
+    #optimizer = optim.Adam(model.parameters(), lr = learning_rate)
+
     #scheduler = CosineAnnealingWarmUpRestarts(optimizer, T_0=150, T_mult=1, eta_max=0.1,  T_up=10, gamma=0.5)
     #scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer,
     #                                    lr_lambda=lambda epoch: 0.95 ** epoch)

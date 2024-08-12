@@ -8,10 +8,12 @@ import random
 import spectral.io.envi as envi
 import cv2
 import warnings
+import netCDF4 as nc
+import rasterio
 warnings.filterwarnings('ignore')
 
 from glob import glob
-
+from PIL import Image
 
 def pad_crop(original_array : np.ndarray, split_size : int):
     '''
@@ -143,6 +145,88 @@ def band_norm(band : np.array, norm_type : str, value_check : bool):
         print('--------------------------------------------------')
 
     return band_norm
+
+
+def read_file(file_path, norm=True, norm_type='linear_norm'):
+    '''
+    Read ENVI, TIFF, TIF, NC, JPG, PNG file Format and return it as numpy array type.
+
+    Input : Directory where satellite data exists.
+    Return : Numpy array of stacked satellite data.
+    '''
+    data_array = []
+    exts = []
+    file_list= os.listdir(file_path)
+    for file in file_list:
+        ext = os.path.splitext(file)[-1].lower()
+        exts.append(ext)
+    ext = list(set(exts))
+
+    # ENVI type 
+    if all(e in ['.hdr', '.img'] for e in ext):
+        hdr_files_path = sorted(glob(os.path.join(file_path, "*.hdr")))
+        img_files_path = sorted(glob(os.path.join(file_path, "*.img")))
+        band_nums = len(hdr_files_path)
+
+        for i in range(band_nums):
+            envi_hdr_path = hdr_files_path[i]
+            envi_img_path = img_files_path[i]
+            data = envi.open(envi_hdr_path, envi_img_path)
+            if norm:
+                img = np.array(data.load())[:,:,0]
+                img = band_norm(img, norm_type, False)
+            else:
+                img = np.array(data.load())[:,:,0]
+            data_array.append(img)
+
+    # TIFF, TIF type 
+    elif any(e in ['.tif', '.tiff'] for e in ext):
+        tiffs_file_path = sorted(glob(os.path.join(file_path, "*.tif")) + 
+                                  glob(os.path.join(file_path, "*.tiff")))
+        with rasterio.open(tiffs_file_path[0]) as src:
+            band_count = src.count  
+            for band in range(1, band_count + 1):
+                img = src.read(band)
+                if norm:
+                    img = band_norm(img, norm_type, False)
+                data_array.append(img)
+        
+    # NetCDF type 
+    elif '.nc' in ext:
+        nc_file_path = sorted(glob(os.path.join(file_path, "*.nc")))
+        ds = nc.Dataset(nc_file_path[0])
+        band_names = list(ds.variables.keys())[1:-3]
+        for i in range(len(band_names)):
+            band_name = str(band_names[i])
+            img = ds[band_name][:]
+            if norm:
+                img = band_norm(img, norm_type, False)
+            data_array.append(img)
+        ds.close()
+
+    # jpg, png, jpeg type 
+    elif any(e in ['.jpg', '.jpeg', '.png'] for e in ext):
+        jpgs_files_path = sorted(glob(os.path.join(file_path, "*.jpg")) + 
+                                glob(os.path.join(file_path, "*.jpeg")) + 
+                                glob(os.path.join(file_path, "*.png")))
+        for i in range(len(jpgs_files_path)):
+            jpg_file_path = jpgs_files_path[i]
+            if img.shape[0] == 1:
+                img = np.array(Image.open(jpg_file_path)).convert('L') # convert into gray scale
+            else:
+                img = np.array(Image.open(jpg_file_path))
+
+            if norm:
+                img = img[:,:,0]
+                img = band_norm(img, norm_type, False)
+            else:
+                img = img[:,:,0]
+            data_array.append(img)
+
+    else:
+        raise ValueError(f"Unsupported file format: {ext}")
+
+    return np.array(data_array)
 
 
 def read_envi_file(img_path, norm = True, norm_type = 'linear_norm'):

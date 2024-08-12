@@ -30,10 +30,9 @@ And finally the directory hierarchy is configured as,
 Satellite_Segmentation
 ├─data
 │  └─Train
-│      └─ENVI
-│          ├─Image
-│          ├─Mask
-│          └─original_nc
+│   ├─Image
+│   ├─Mask
+│   └─original_nc
 ├─models
 │  ├─modules
 │  └─models
@@ -61,28 +60,27 @@ Satellite_Segmentation
 
 ## Dataset
 ### Data Format
-- Currently, this code can only handle ENVI type Satellite images. 
-- Code for handling other types of data(netcdf, tiff, etc..) will also be added
+- Currently, this code can handle ENVI, Tiff, Tif, NetCDF type Satellite images. 
 - Data should be large original satellite image without cutting. Built-in algorithm will divide Large original images into 256 width, height images.
 - original nc data needs for extracting lat/lon information.
+- For visualizing train process, you should modify band_names variable in visualize.py as your need
 - Using all of the huge satellite data can lead to a data distribution imbalance problem. 
 - Therefore, after sampling the deep learning data based on the target mask, the data of the non-target area(Where target object doesn't exist) may be randomly added.
 
 ```
 data
 ├── Train
-│      ├── ENVI
-│      │      ├── Image
-│      │      │      ├── NDWI.hdr
-│      │      │      ├── NDWI.img
-│      │      │      ├── NIR.hdr
-│      │      │      ├── NIR.img
-│      │      │      └── .....
-│      │      ├── Mask
-│      │      │      ├── Mask.hdr
-│      │      │      └── Mask.img
-│      │      ├── original_nc
-└──    └──    └──    └── original.nc
+│      ├── Image
+│      │      ├── NDWI.hdr
+│      │      ├── NDWI.img
+│      │      ├── NIR.hdr
+│      │      ├── NIR.img
+│      │      └── .....
+│      ├── Mask
+│      │      ├── Mask.hdr
+│      │      └── Mask.img
+│      └── original_nc
+└──           └── original.nc
 
 ```
 
@@ -97,7 +95,7 @@ python band_analysis.py -D [data directory] -T [visualize type : norm]
 ```
 
 ### Normalization Result
-- Linear Norm & Dynamic World Norm is now available
+- Linear Norm & Dynamic World Norm are now available
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/norm_result.png?raw=true">
 
 ---
@@ -111,25 +109,24 @@ python band_analysis.py -D [data directory] -T [visualize type : norm]
 ```
 python train.py -D [data directory] -M [model name] -E [num epochs] -L [learning rate] -B [batch size] -S [early stop]
 ```
-</br>
-
 ### Test
 ```
 python test.py -D [data directory] -M [model name] -P [model path]
 ```
-</br>
-
 ### Inference
 ```
 python train.py -D [data directory] -M [model name] -P [model path] -B [batch size]
 ```
-</br>
-
 ---
 ## Performance(will be added) : 
 
 ---
 ## Qualitative results(will be added)
+
+### Segmentation Map(Multipolygon Shapefile format)
+
+### Hexagonal Distribution
+
 
 ---
 ## Reference(will be added)

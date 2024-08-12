@@ -6,6 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import warnings
+import math
 warnings.filterwarnings('ignore')
 
 from typing import Any
@@ -23,6 +24,8 @@ def visualize(
         ) -> None:
     '''
     Visualize training process per epoch and Save it
+
+    Modify band_names variable as your need
     '''
     # Get data
     original_img_cpu = original_img[0].cpu().numpy()
@@ -34,13 +37,12 @@ def visualize(
     # Read Band Information
     band_number = original_img_cpu.shape[0]
     plt.figure(figsize=(20,12))
-    data_path = "data\Train\ENVI\Image"
-    band_names = [x.split('.')[0] for x in os.listdir(data_path)]
-    band_names = sorted(list(set(band_names)))
+    band_names = ['band_1', 'band_2', 'band_3'] # Modify as your need
+    band_number = len(band_names)
 
     # Visualize
     row = 2
-    col = int(band_number/2) + 1
+    col = int(math.ceil(band_number/2)) + 1
     for i in range(len(band_names)):
         band = original_img_cpu[i,:,:]
         plt.subplot(row, col, i+1)

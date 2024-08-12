@@ -29,12 +29,12 @@ CLASSES = 1  # For Binary Segmentatoin
 
 
 @click.command()
-@click.option("-D", "--data-dir", type=str, default='data\\Train\\ENVI', required=True, help="Path for Data Directory")
+@click.option("-D", "--data-dir", type=str, default='data\\Train', required=True, help="Path for Data Directory")
 @click.option(
     "-M",
     "--model-name",
     type=str,
-    default='mdoaunet',
+    default='attentunet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(

@@ -37,7 +37,7 @@ def visualize(
     # Read Band Information
     band_number = original_img_cpu.shape[0]
     plt.figure(figsize=(20,12))
-    band_names = ['band_1', 'band_2', 'band_3'] # Modify as your need
+    band_names = ['NDWI', 'NIR', 'RED'] # Modify as your need
     band_number = len(band_names)
 
     # Visualize

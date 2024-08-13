@@ -2,12 +2,13 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt 
 import click
+import math
 
 from utils.util import pad_crop, read_envi_file, find_arrays_with_object, set_seed
 
 @click.command()
-@click.option("-D", "--data-dir", type=str, default='data\\Train\\ENVI', help="Path for Data Directory")
-@click.option("-T", "--viz-type", type=str, default='band_histogram', help="Visualize Type")
+@click.option("-D", "--data-dir", type=str, default='data\\Train', help="Path for Data Directory")
+@click.option("-T", "--viz-type", type=str, default='norm', help="Visualize Type")
 
 
 def main(
@@ -23,10 +24,10 @@ def main(
     viz_type = viz_type
     image_dir = os.path.join(data_dir, "Image")
     mask_dir = os.path.join(data_dir, "Mask")
-    band_names = [x.split('.')[0] for x in os.listdir(image_dir)]
-    band_names = sorted(list(set(band_names)))
+    band_names = ['NDWI', 'NIR', 'RED'] # Modify as your need
+    band_number = len(band_names)
 
-    set_seed(80)
+    set_seed(92)
 
     # Visualize Normalization Result
     if viz_type == 'norm':
@@ -43,7 +44,7 @@ def main(
 
         # Visualization
         plt.figure(figsize=(10,10))
-        cols, rows = 4, len(band_names)
+        cols, rows = band_number, 4 
         img_np, mask_np = image_list[sample], mask_list[sample]
         linear_norm_np, dynamic_world_norm_np = linear_norm_list[sample], dynamic_norm_list[sample]
 

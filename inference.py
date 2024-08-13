@@ -21,7 +21,7 @@ from models.models.u2net import U2NET
 from models.models.attent_unet import AttU_Net
 
 from dataset import InferenceDataset
-from utils.util import set_seed, gpu_test, unpad, read_envi_file, restore_img, remove_noise
+from utils.util import set_seed, gpu_test, unpad, restore_img, remove_noise, read_file
 from utils.save_data import save_nc, label_binary_image, mask_to_boundary, mask_to_hexagon, mask_to_area
 from utils.visualize import compare_result
 from datetime import datetime
@@ -41,7 +41,7 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='mdoaunet',
+    default='unet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
@@ -132,7 +132,7 @@ def main(
     pad_length = 16
 
     img_path = os.path.join(data_dir, 'Image')
-    _, image_height, image_width = read_envi_file(img_path, True, 'dynamic_world_norm').shape
+    _, image_height, image_width = read_file(img_path, True, 'dynamic_world_norm').shape
 
     with torch.no_grad():
         for i, (images, _) in enumerate(inference_dataloader):
@@ -160,7 +160,7 @@ def main(
 
     # Save into NC images
     click.secho(message="🔎 Save into .nc format data...", fg="green")
-    original_array_path = 'data\Train\ENVI\original_nc\Final_Images_msk.nc'  # Need Original Data for adding coordinate information
+    original_array_path = 'data\Train\original_nc\Final_Images_msk.nc'  # Need Original Data for adding coordinate information
     nc_path = os.path.join(inference_output_dir, 'Inference_output.nc')
 
     fdata = nc.Dataset(original_array_path)
@@ -169,12 +169,12 @@ def main(
     save_nc(nc_path, restored_img, lat_grid, lon_grid)
 
     # Save Boundary data into Shapefile(MultiLineString)
-    # click.secho(message="🔎 Save Boundary data...", fg="green")
+    click.secho(message="🔎 Save Boundary data...", fg="green")
 
-    # morphed_img = remove_noise(restored_img)
-    # labeled_image = label_binary_image(morphed_img)
-    # boundary_path = os.path.join(inference_output_dir, 'Boundary.shp')
-    # #mask_to_boundary(labeled_image, boundary_path, lon_grid, lat_grid)
+    morphed_img = remove_noise(restored_img)
+    labeled_image = label_binary_image(morphed_img)
+    boundary_path = os.path.join(inference_output_dir, 'Boundary.shp')
+    mask_to_boundary(labeled_image, boundary_path, lon_grid, lat_grid)
     # mask_to_area(labeled_image, os.path.join(inference_output_dir, 'Polygon.shp'), lon_grid, lat_grid)
 
     # Save Hexagon data into Shapefile(Polygon)
@@ -195,8 +195,8 @@ def main(
     prediction = Image.open(prediction_path)
     prediction_np = np.array(prediction)
     
-    true_mask_path = 'data\Train\ENVI\Mask'
-    true_mask_np = read_envi_file(true_mask_path, None, None)
+    true_mask_path = 'data\Train\Mask'
+    true_mask_np = read_file(true_mask_path, None, None)
 
     result = compare_result(prediction_np, true_mask_np)
     img_np = np.array(result, np.uint8)

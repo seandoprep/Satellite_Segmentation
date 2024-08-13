@@ -43,14 +43,14 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='deeplabv3plus',
+    default='unet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
     "-E",
     "--num-epochs",
     type=int,
-    default=150,
+    default=300,
     help="Number of epochs to train the model for. Default - 100",
 )
 @click.option(
@@ -157,7 +157,7 @@ def main(
     #scheduler = CosineAnnealingWarmUpRestarts(optimizer, T_0=150, T_mult=1, eta_max=0.1,  T_up=10, gamma=0.5)
     #scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer,
     #                                    lr_lambda=lambda epoch: 0.95 ** epoch)
-    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+    #scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
     # For Early-Stopping
     patience_epochs = 50
@@ -276,7 +276,7 @@ def main(
             avg_recall_train = total_recall_train / len(train_dataloader)
             avg_f1_train = total_f1_train / len(train_dataloader)
 
-            scheduler.step(t_loss)
+            #scheduler.step(t_loss)
 
             # VALIDATION
             model.eval()
@@ -327,7 +327,7 @@ def main(
             avg_recall_val = total_recall_val / len(val_dataloader)
             avg_f1_val = total_f1_val / len(val_dataloader)
 
-            scheduler.step(val_loss)
+            #scheduler.step(val_loss)
 
             print(
                 f"{'-'*50}"

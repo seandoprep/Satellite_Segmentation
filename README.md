@@ -6,9 +6,11 @@
 - This code is originally built for segmenting offshore aquaculture facilities in the Southern Sea of South Korea, but you can just apply this pipeline into any kind of satellite segmentation tasks. 
 - You can get your target segmentation result with non-processed Satellite Imagery and target mask.
 - Code will be updated constantly. If you have any advice or questions, please feel free to contact me via email(sean3819@yonsei.ac.kr).
+- Flowchart :
+<img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/flowchart.png?raw=true">
 
 ## Requirements
-### Conda virtual environment setup (recommend python 3.9.18.ver )
+### Conda virtual environment setup (recommend python 3.9.18.ver)
 ```
 conda create -n [environment name] --file [this file]
 conda activate [environment name]
@@ -61,7 +63,7 @@ Satellite_Segmentation
 ## Dataset
 ### Data Format
 - Currently, this code can handle ENVI, Tiff, Tif, NetCDF type Satellite images. 
-- Data should be large original satellite image without cutting. Built-in algorithm will divide Large original images into 256 width, height images.
+- Data should be large original satellite image without cutting. Built-in algorithm will divide original images into 256 width, height images.
 - original nc data needs for extracting lat/lon information.
 - For visualizing train process, you should modify band_names variable in visualize.py as your need
 - Using all of the huge satellite data can lead to a data distribution imbalance problem. 
@@ -90,7 +92,6 @@ Data Download : [Google Drive](https://drive.google.com/drive/folders/1skobdYIpn
 - Satellite Info : Sentinel-2A/B 
 - Spatial Resolution : 10m
 - Bands : NDWI, NIR, RED
-- Preprocessing : Land/Sea Masking, Median
 - True Mask was created based on a Google Earth and aquculture facility information map provided by the Ministry of Oceans and Fisheries.
 
 ---
@@ -124,29 +125,23 @@ python test.py -D [data directory] -M [model name] -P [model path]
 python train.py -D [data directory] -M [model name] -P [model path] -B [batch size]
 ```
 ---
-## Performance(will be added) : 
-
-|Model|Precision|Recall|F1|IoU|
-|------|---|---|---|---|
-|U-Net|0.9022|0.8266|0.8572|0.7573|
-|DeepLabv3+|테스트2|테스트3|테스트2|테스트3|
-|ResUNet++|테스트2|테스트3|테스트2|테스트3|
-|U2-Net|테스트2|테스트3|테스트2|테스트3|
-|Attention U-Net|테스트2|테스트3|테스트2|테스트3|
-|Mdoaunet|테스트2|테스트3|테스트2|테스트3|
-
-
-
----
-## Qualitative results(will be added)
+## Qualitative results
+<img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/result1.png?raw=true">
+<img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/result2.png?raw=true">
 
 ### Segmentation Map(Multipolygon Shapefile format)
+- Inference_output.jpg : Inference result for original data(total segmentation map)
+- Compare_output.jpg : Compare inference result with true mask(red : true mask, blue : inference result)
+<img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/inference_result.png?raw=true">
+
 
 ### Hexagonal Distribution
-
+- Geocoordinated hexagonal distribution can be obtained using the plt.hexbin function.
+- Use visualization tools such as QGIS
+<img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/hexbin_distribution.png?raw=true">
 
 ---
-## Reference(will be added)
+## Code Reference
 Thanks to,
 </br>
 https://github.com/usuyama/pytorch-unet

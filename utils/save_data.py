@@ -198,7 +198,6 @@ def mask_to_area(mask, output_shapefile, lon_grid, lat_grid, min_area=20.):
     return multi_polygon
 
 
-
 def polygons_from_hexbins(collection):
     """Convert Matploylib PolyCollection data to Polygons"""
     hex_polys = collection.get_paths()[0].vertices

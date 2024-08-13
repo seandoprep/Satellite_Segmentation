@@ -6,8 +6,6 @@
 - This code is originally built for segmenting offshore aquaculture facilities in the Southern Sea of South Korea, but you can just apply this pipeline into any kind of satellite segmentation tasks. 
 - You can get your target segmentation result with non-processed Satellite Imagery and target mask.
 - Code will be updated constantly. If you have any advice or questions, please feel free to contact me via email(sean3819@yonsei.ac.kr).
-- Flowchart :
-<img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/flowchart.png?raw=true">
 
 ## Requirements
 ### Conda virtual environment setup (recommend python 3.9.18.ver)
@@ -129,10 +127,14 @@ python train.py -D [data directory] -M [model name] -P [model path] -B [batch si
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/result1.png?raw=true">
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/result2.png?raw=true">
 
-### Segmentation Map(Multipolygon Shapefile format)
+### Segmentation Map
 - Inference_output.jpg : Inference result for original data(total segmentation map)
 - Compare_output.jpg : Compare inference result with true mask(red : true mask, blue : inference result)
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/inference_result.png?raw=true">
+
+### Convert Segmentation map to Shapefile 
+- 
+
 
 
 ### Hexagonal Distribution

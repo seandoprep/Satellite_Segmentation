@@ -84,8 +84,14 @@ data
 
 ```
 
-### Sample data(will be added)
-
+### Sample data
+Data Download : [Google Drive](https://drive.google.com/drive/folders/1skobdYIpn0LS9YqQvlGoWnWkUhu5otas?usp=sharing)
+- Task : Aquaculture Facility Segmentation
+- Satellite Info : Sentinel-2A/B 
+- Spatial Resolution : 10m
+- Bands : NDWI, NIR, RED
+- Preprocessing : Land/Sea Masking, Median
+- True Mask was created based on a Google Earth and aquculture facility information map provided by the Ministry of Oceans and Fisheries.
 
 ---
 ## Band Analysis
@@ -119,6 +125,17 @@ python train.py -D [data directory] -M [model name] -P [model path] -B [batch si
 ```
 ---
 ## Performance(will be added) : 
+
+|Model|Precision|Recall|F1|IoU|
+|------|---|---|---|---|
+|U-Net|0.9022|0.8266|0.8572|0.7573|
+|DeepLabv3+|테스트2|테스트3|테스트2|테스트3|
+|ResUNet++|테스트2|테스트3|테스트2|테스트3|
+|U2-Net|테스트2|테스트3|테스트2|테스트3|
+|Attention U-Net|테스트2|테스트3|테스트2|테스트3|
+|Mdoaunet|테스트2|테스트3|테스트2|테스트3|
+
+
 
 ---
 ## Qualitative results(will be added)

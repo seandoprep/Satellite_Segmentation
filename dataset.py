@@ -99,7 +99,7 @@ class InferenceDataset(Dataset):
         self.mask_dir = os.path.join(data_dir, "Mask")
         self.image_list = pad_crop(read_file(self.image_dir, True, 'dynamic_world_norm'), 224)
         self.mask_list = pad_crop(read_file(self.mask_dir, True, 'mask_norm'), 224)
-        self.transform = transforms
+        self.transform = transform
         self.indices = list(range(len(self.image_list)))
         #self.indices = find_arrays_with_object(self.mask_list)
 

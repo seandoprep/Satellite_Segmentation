@@ -133,8 +133,10 @@ python train.py -D [data directory] -M [model name] -P [model path] -B [batch si
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/inference_result.png?raw=true">
 
 ### Convert Segmentation map to Shapefile 
-- 
-
+- Convert segmentation map with shapely
+- mask to multipolygon shapefile will be updated
+- Use visualization tools such as QGIS
+<img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/boundary_shp.png?raw=true">
 
 
 ### Hexagonal Distribution
@@ -143,13 +145,16 @@ python train.py -D [data directory] -M [model name] -P [model path] -B [batch si
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/hexbin_distribution.png?raw=true">
 
 ---
-## Code Reference
-Thanks to,
-</br>
-https://github.com/usuyama/pytorch-unet
-https://github.com/xuebinqin/U-2-Net
-https://github.com/rishikksh20/ResUnet
-https://github.com/LeeJunHyun/Image_Segmentation
-https://github.com/mukund-ks/DeepLabV3Plus-PyTorch
-https://github.com/Jichao-Wang/MDOAU-net/blob/main/MDOAU_net.py
-https://www.mdpi.com/2072-4292/14/18/4587
+## Reference
+Code Reference : 
+[U-Net](https://github.com/usuyama/pytorch-unet)
+[U2-Net](https://github.com/xuebinqin/U-2-Net)
+[ResUNet++](https://github.com/rishikksh20/ResUnet)
+[DeepLabv3+](https://github.com/mukund-ks/DeepLabV3Plus-PyTorch)
+[Attention U-Net](https://github.com/LeeJunHyun/Image_Segmentation)
+[MDOAU-net](https://github.com/Jichao-Wang/MDOAU-net)
+
+Citation :
+[RaftNet: A New Deep Neural Network for Coastal Raft Aquaculture Extraction from Landsat 8 OLI Data](https://www.mdpi.com/2072-4292/14/18/4587)
+[Mapping Aquaculture Ponds for the Coastal Zone of Asia with Sentinel-1 and Sentinel-2 Time Series](https://www.mdpi.com/2072-4292/14/1/153)
+[Development of a Prototype Sysem for Aquaculture Facility Auto Detection Using KOMPSAT-3 Satellite Imager](http://journal.kagis.or.kr/journal/view.asp?key=3489757)

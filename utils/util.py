@@ -149,7 +149,7 @@ def band_norm(band : np.array, norm_type : str, value_check : bool):
 
 def read_file(file_path, norm=True, norm_type='linear_norm'):
     '''
-    Read ENVI, TIFF, TIF, NC, JPG, PNG file Format and return it as numpy array type.
+    Read ENVI, TIFF, TIF, NC file Format and return it as numpy array type.
 
     Input : Directory where satellite data exists.
     Return : Numpy array of stacked satellite data.
@@ -204,57 +204,29 @@ def read_file(file_path, norm=True, norm_type='linear_norm'):
             data_array.append(img)
         ds.close()
 
-    # jpg, png, jpeg type 
-    elif any(e in ['.jpg', '.jpeg', '.png'] for e in ext):
-        jpgs_files_path = sorted(glob(os.path.join(file_path, "*.jpg")) + 
-                                glob(os.path.join(file_path, "*.jpeg")) + 
-                                glob(os.path.join(file_path, "*.png")))
-        for i in range(len(jpgs_files_path)):
-            jpg_file_path = jpgs_files_path[i]
-            if img.shape[0] == 1:
-                img = np.array(Image.open(jpg_file_path)).convert('L') # convert into gray scale
-            else:
-                img = np.array(Image.open(jpg_file_path))
+    # # jpg, png, jpeg type 
+    # elif any(e in ['.jpg', '.jpeg', '.png'] for e in ext):
+    #     jpgs_files_path = sorted(glob(os.path.join(file_path, "*.jpg")) + 
+    #                             glob(os.path.join(file_path, "*.jpeg")) + 
+    #                             glob(os.path.join(file_path, "*.png")))
+    #     for i in range(len(jpgs_files_path)):
+    #         jpg_file_path = jpgs_files_path[i]
+    #         if img.shape[0] == 1:
+    #             img = np.array(Image.open(jpg_file_path)).convert('L') # convert into gray scale
+    #         else:
+    #             img = np.array(Image.open(jpg_file_path))
 
-            if norm:
-                img = img[:,:,0]
-                img = band_norm(img, norm_type, False)
-            else:
-                img = img[:,:,0]
-            data_array.append(img)
+    #         if norm:
+    #             img = img[:,:,0]
+    #             img = band_norm(img, norm_type, False)
+    #         else:
+    #             img = img[:,:,0]
+    #         data_array.append(img)
 
     else:
         raise ValueError(f"Unsupported file format: {ext}")
 
     return np.array(data_array)
-
-
-def read_envi_file(img_path, norm = True, norm_type = 'linear_norm'):
-    '''
-    Read ENVI file Format and return it as numpy array type.
-
-    Input : Directory where ENVI hdr, img file exist.
-    Return : Numpy array of stacked ENVI .img data.
-    '''
-    hdr_files = sorted(glob(os.path.join(img_path, "*.hdr")))
-    img_files = sorted(glob(os.path.join(img_path, "*.img")))
-    band_nums = len(hdr_files)
-
-    envi_data = []
-    for i in range(band_nums):
-        envi_hdr_path = hdr_files[i]
-        envi_img_path = img_files[i]
-
-        data = envi.open(envi_hdr_path, envi_img_path)
-        if norm:
-            img = np.array(data.load())[:,:,0]
-            img = band_norm(img, norm_type, False)
-        else:
-            img = np.array(data.load())[:,:,0]
-            
-        envi_data.append(img)
-
-    return np.array(envi_data)
 
 
 def remove_noise(binary_image, opening_kernel_size=(3, 3), closing_kernel_size=(3, 3), opening_iterations=1, closing_iterations=1):

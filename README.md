@@ -1,4 +1,4 @@
-> Code is still on working. Please wait for final version.
+> The code will be continuously updated, and this GitHub repository is available for use.
 
 # 🛰️Satellite_Segmentation🛰️ : Segmentation Framework Using PyTorch for Satellite Imagery.
 
@@ -123,7 +123,11 @@ python test.py -D [data directory] -M [model name] -P [model path]
 python train.py -D [data directory] -M [model name] -P [model path] -B [batch size]
 ```
 ---
-## Qualitative results
+## Result
+- You can obtain three types of results through inference.py.
+- Segmentation Map, Boundary shapefile, Hexagonal distribution.
+
+### Qualitative results
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/result1.png?raw=true">
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/result2.png?raw=true">
 
@@ -137,7 +141,6 @@ python train.py -D [data directory] -M [model name] -P [model path] -B [batch si
 - mask to multipolygon shapefile will be updated
 - Use visualization tools such as QGIS
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/boundary_shp.png?raw=true">
-
 
 ### Hexagonal Distribution
 - Geocoordinated hexagonal distribution can be obtained using the plt.hexbin function.

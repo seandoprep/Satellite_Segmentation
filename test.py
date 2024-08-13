@@ -23,7 +23,7 @@ from utils.metrics import calculate_metrics
 from utils.visualize import visualize
 from datetime import datetime
 
-INPUT_CHANNEL_NUM = 4
+INPUT_CHANNEL_NUM = 3
 INPUT = (256, 256)
 CLASSES = 1  # For Binary Segmentatoin
 
@@ -34,7 +34,7 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='attentunet',
+    default='deeplabv3plus',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(

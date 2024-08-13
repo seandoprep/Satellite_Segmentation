@@ -43,14 +43,14 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='attentunet',
+    default='deeplabv3plus',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
     "-E",
     "--num-epochs",
     type=int,
-    default=300,
+    default=150,
     help="Number of epochs to train the model for. Default - 100",
 )
 @click.option(

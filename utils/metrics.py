@@ -15,7 +15,7 @@ def calculate_metrics(pred_mask: Any, true_mask: Any) -> torch.Tensor:
     '''
     pred_mask = pred_mask.view(-1).float()
     true_mask = true_mask.view(-1).float()
-    eps=1e-5
+    eps=1e-9
 
     # Calculating precision, recall, and F1 score using PyTorch
     TP = ((pred_mask == 1) & (true_mask == 1)).sum()
@@ -27,6 +27,6 @@ def calculate_metrics(pred_mask: Any, true_mask: Any) -> torch.Tensor:
     pixel_acc = (TP + TN + eps) / (TP + TN + FP + FN + eps)
     precision = (TP + eps) / (TP + FP + eps)
     recall = (TP + eps) / (TP + FN + eps)
-    f1 = 2*((precision * recall)/(precision + recall))
+    f1 = 2*(precision * recall)/(precision + recall)
 
     return iou.item(), pixel_acc.item(), precision.item(), recall.item(), f1.item()

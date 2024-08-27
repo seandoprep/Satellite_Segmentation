@@ -136,13 +136,11 @@ def save_to_shapefile(output_shapefile, geometry_type, contours, lon_grid, lat_g
 
 def mask_to_shp(mask, save_directory, lon_grid, lat_grid, min_area=25.):
     """Convert a mask ndarray (binarized image) to LineString and Polygon, saving each with all coordinates as a property."""
-    # Find contours with cv2 (only external boundaries)
-
     # Convert mask to uint8 if it's not already
     if mask.dtype != np.uint8:
         mask = (mask * 255).astype(np.uint8)
 
-    # Find contours
+    # Find contours with cv2 (only external boundaries)
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if not contours:
         return []

@@ -22,7 +22,7 @@ from models.models.attent_unet import AttU_Net
 
 from dataset import InferenceDataset
 from utils.util import set_seed, gpu_test, unpad, restore_img, remove_noise, read_file
-from utils.save_data import save_nc, label_binary_image, mask_to_boundary, mask_to_hexagon, mask_to_area
+from utils.save_data import save_nc, label_binary_image, mask_to_hexagon, mask_to_shp
 from utils.visualize import compare_result
 from datetime import datetime
 from PIL import Image
@@ -168,14 +168,11 @@ def main(
     lon_grid = np.array(fdata['lon'][:])
     save_nc(nc_path, restored_img, lat_grid, lon_grid)
 
-    # Save Boundary data into Shapefile(MultiLineString)
-    click.secho(message="🔎 Save Boundary data...", fg="green")
-
+    # Save into shapefile data(linestring & polygon)
+    click.secho(message="🔎 Save .shp format data...", fg="green")
     morphed_img = remove_noise(restored_img)
     labeled_image = label_binary_image(morphed_img)
-    boundary_path = os.path.join(inference_output_dir, 'Boundary.shp')
-    mask_to_boundary(labeled_image, boundary_path, lon_grid, lat_grid)
-    # mask_to_area(labeled_image, os.path.join(inference_output_dir, 'Polygon.shp'), lon_grid, lat_grid)
+    mask_to_shp(labeled_image, inference_output_dir, lon_grid, lat_grid)
 
     # Save Hexagon data into Shapefile(Polygon)
     click.secho(message="🔎 Save Hexagon data...", fg="green")

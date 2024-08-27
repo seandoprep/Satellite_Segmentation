@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 from collections import defaultdict
-from shapely import MultiLineString
+from shapely import LineString
 from shapely.geometry import Polygon, MultiPolygon, mapping
 from netCDF4 import Dataset
 from fiona.crs import from_epsg
@@ -103,99 +103,61 @@ def label_binary_image(binary_array : np.array):
     return np.array(labeled_image)
 
 
-def mask_to_boundary(mask, output_shapefile, lon_grid, lat_grid, min_area=20.):
-    """Convert a mask ndarray(binarized image) to MultiLineString"""
-    # Find contours with cv2: it's much faster than shapely
-    contours, hierarchy = cv2.findContours(mask,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_NONE)
+def save_to_shapefile(output_shapefile, geometry_type, contours, lon_grid, lat_grid, min_area):
+    """Helper function to save contours as LineString or Polygon"""
+    if geometry_type == 'LineString':
+        schema = {'geometry': 'LineString', 'properties': {'coordinates': 'str'}}
+    elif geometry_type == 'Polygon':
+        schema = {'geometry': 'Polygon', 'properties': {'coordinates': 'str'}}
+
+    with fiona.open(output_shapefile, 'w', driver='ESRI Shapefile', schema=schema, crs="EPSG:4326") as output:
+        for cnt in contours:
+            if cv2.contourArea(cnt) >= min_area:
+                # Convert contour to geographic coordinates
+                coords = [(lon_grid[point[0][0] - 1], lat_grid[point[0][1] - 1]) for point in cnt]
+                coords.append(coords[0])
+
+                # For LineString, ensure at least 2 points are available
+                if geometry_type == 'LineString' and len(coords) >= 2:
+                    line = LineString(coords)
+                    output.write({
+                        'geometry': mapping(line),
+                        'properties': {'coordinates': str(coords)}
+                    })
+
+                # For Polygon, ensure at least 3 points are available and area is above threshold
+                elif geometry_type == 'Polygon' and len(coords) >= 3:
+                    polygon = Polygon(coords)
+                    output.write({
+                        'geometry': mapping(polygon),
+                        'properties': {'coordinates': str(polygon.exterior.coords[:])}
+                    })
+
+
+def mask_to_shp(mask, save_directory, lon_grid, lat_grid, min_area=25.):
+    """Convert a mask ndarray (binarized image) to LineString and Polygon, saving each with all coordinates as a property."""
+    # Find contours with cv2 (only external boundaries)
+
+    # Convert mask to uint8 if it's not already
+    if mask.dtype != np.uint8:
+        mask = (mask * 255).astype(np.uint8)
+
+    # Find contours
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if not contours:
-        return MultiLineString()
-    cnt_children = defaultdict(list)
-    child_contours = set()
-    assert hierarchy.shape[0] == 1
+        return []
 
-    for idx, (_, _, _, parent_idx) in enumerate(hierarchy[0]):
-        if parent_idx != -1:
-            child_contours.add(idx)
-            cnt_children[parent_idx].append(contours[idx])
+    # File names and their corresponding geometry types
+    shapefiles = [
+        ('Boundary.shp', 'LineString'),
+        ('Polygon.shp', 'Polygon')
+    ]
 
-    # Create actual polygons filtering by area (removes artifacts)
-    boundaries = ()
-    for idx, cnt in enumerate(contours):
-        coords = ()
-        if idx not in child_contours and cv2.contourArea(cnt) >= min_area:
-            for point in cnt:
-                coord = (lon_grid[point[0][0]-1], lat_grid[point[0][1]-1])
-                coords = coords + (coord,)
-            boundaries = boundaries + (coords,)
+    for shp_name, geometry_type in shapefiles:
+        output_shapefile = os.path.join(save_directory, shp_name)
+        save_to_shapefile(output_shapefile, geometry_type, contours, lon_grid, lat_grid, min_area)
 
-    # Save into MultiLineString type data
-    schema = {
-        'geometry': 'MultiLineString',
-        'properties' : {}
-    }
-
-    with fiona.open(output_shapefile, 'w', 'ESRI Shapefile', schema, crs = "EPSG:4326") as output:
-        output.write({
-            'geometry': {'type' : 'MultiLineString', 'coordinates' : boundaries},
-            'properties' : {}
-        })
-
-    return 
-
-
-def mask_to_area(mask, output_shapefile, lon_grid, lat_grid, min_area=20.):
-    """Convert a mask ndarray (binarized image) to MultiPolygon"""
-    # Find contours with cv2: it's much faster than shapely
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
-    if not contours:
-        return MultiPolygon()
-    cnt_children = defaultdict(list)
-    child_contours = set()
-    assert hierarchy.shape[0] == 1
-
-    for idx, (_, _, _, parent_idx) in enumerate(hierarchy[0]):
-        if parent_idx != -1:
-            child_contours.add(idx)
-            cnt_children[parent_idx].append(contours[idx])
-
-    # Create actual polygons filtering by area (removes artifacts)
-    polygons = []
-    for idx, cnt in enumerate(contours):
-        area = cv2.contourArea(cnt)
-        if idx not in child_contours and area >= min_area:
-            coords = []
-            for point in cnt:
-                coord = (lon_grid[point[0][0]-1], lat_grid[point[0][1]-1])
-                coords.append(coord)
-            polygon = Polygon(coords)
-            if polygon.area >= min_area:
-                # Check for holes (children contours)
-                holes = []
-                for child in cnt_children.get(idx, []):
-                    hole_coords = []
-                    for point in child:
-                        coord = (lon_grid[point[0][0]-1], lat_grid[point[0][1]-1])
-                        hole_coords.append(coord)
-                    holes.append(hole_coords)
-                if holes:
-                    polygon = Polygon(shell=coords, holes=holes)
-                polygons.append(polygon)
-
-    multi_polygon = MultiPolygon(polygons)
-
-    # Save into MultiPolygon type data
-    schema = {
-        'geometry': 'MultiPolygon',
-        'properties': {}
-    }
-
-    with fiona.open(output_shapefile, 'w', driver='ESRI Shapefile', schema=schema, crs=from_epsg(4326)) as output:
-        output.write({
-            'geometry': mapping(multi_polygon),
-            'properties': {}
-        })
-
-    return multi_polygon
+    return
 
 
 def polygons_from_hexbins(collection):

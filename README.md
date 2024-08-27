@@ -54,7 +54,9 @@ Satellite_Segmentation
 ├─train.py
 ├─test.py
 ├─inference.py
-└─requirements.txt
+├─requirements.txt
+└─packagelist.txt
+
 ```
 ---
 
@@ -124,8 +126,8 @@ python train.py -D [data directory] -M [model name] -P [model path] -B [batch si
 ```
 ---
 ## Result
-- You can obtain three types of results through inference.py.
-- Segmentation Map, Boundary shapefile, Hexagonal distribution.
+- You can obtain four types of results through inference.py.
+- Segmentation Map, Boundary, Polygon, Hexagonal distribution.
 
 ### Qualitative results
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/result1.png?raw=true">
@@ -138,13 +140,17 @@ python train.py -D [data directory] -M [model name] -P [model path] -B [batch si
 
 ### Convert Segmentation map to Shapefile 
 - Convert segmentation map with shapely
-- mask to multipolygon shapefile will be updated
-- Use visualization tools such as QGIS
+</br>
+
+- Linestring type
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/boundary_shp.png?raw=true">
+
+- Polygon type 
+<img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/polygon_shp.png?raw=true">
+
 
 ### Hexagonal Distribution
 - Geocoordinated hexagonal distribution can be obtained using the plt.hexbin function.
-- Use visualization tools such as QGIS
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/hexbin_distribution.png?raw=true">
 
 ---

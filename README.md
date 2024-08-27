@@ -140,8 +140,6 @@ python train.py -D [data directory] -M [model name] -P [model path] -B [batch si
 
 ### Convert Segmentation map to Shapefile 
 - Convert segmentation map with shapely
-</br>
-
 - Linestring type
 <img src="https://github.com/seandoprep/Satellite_Segmentation/blob/master/images/boundary_shp.png?raw=true">
 

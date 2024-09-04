@@ -6,6 +6,7 @@ import torch
 import click
 import traceback
 import albumentations as A
+import torch.nn.functional as F
 
 from tqdm import tqdm
 from albumentations.pytorch import ToTensorV2
@@ -18,15 +19,18 @@ from models.models.u2net import U2NET
 from models.models.attent_unet import AttU_Net
 
 from dataset import SatelliteDataset
-from utils.util import set_seed, gpu_test
+from utils.util import set_seed, gpu_test, get_data_info
 from utils.metrics import calculate_metrics
 from utils.visualize import visualize
 from datetime import datetime
 
-INPUT_CHANNEL_NUM = 3
-INPUT = (256, 256)
-CLASSES = 1  # For Binary Segmentatoin
-
+# Data Info
+INPUT_CHANNEL_NUM = get_data_info("data\Train\Image")
+CLASSES = get_data_info("data\Train\Mask")
+if CLASSES == 1:
+    is_binary = True
+else:
+    is_binary = False
 
 @click.command()
 @click.option("-D", "--data-dir", type=str, default='data\\Train', required=True, help="Path for Data Directory")
@@ -122,19 +126,27 @@ def main(
     total_f1_test = 0.0
 
     with torch.no_grad():
-        for i, (image, mask) in enumerate(test_dataloader):
+        for i, (image, true_mask) in enumerate(test_dataloader):
             image = image.to(device)
-            mask = mask.to(device)
+            true_mask = true_mask.to(device)
 
-            output = model(image)
-            pred_mask = output > 0.5
+            pred_mask = model(image)
+            if CLASSES != 1:  # # Multiclass Segmentation
+                pred_mask = F.softmax(pred_mask, dim=1)
 
-            visualize(image, output, mask,
+            visualize(image, pred_mask, true_mask,
                       img_save_path= test_output_dir, 
-                      epoch='none', iter='none', type='test', num = i)
-
+                      epoch='none', iter='none', type='test', 
+                      num = i, is_binary = is_binary)
+            
+            # Calculating metrics for testing
+            if CLASSES == 1:  # Binary Segmentation
+                pred_mask = pred_mask > 0.5
+            else:  # Multi-class Segmentation
+                pred_mask = torch.argmax(pred_mask, dim=1)
+            
             iou_test, pixel_accuracy_test, precision_test, recall_test, f1_test = calculate_metrics(
-                pred_mask, mask
+                pred_mask, true_mask
             )
 
             total_iou_test += iou_test

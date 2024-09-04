@@ -9,6 +9,7 @@ import albumentations as A
 import numpy as np
 import torch.nn.functional as F
 import netCDF4 as nc 
+import matplotlib.pyplot as plt
 
 from tqdm import tqdm
 from albumentations.pytorch import ToTensorV2
@@ -21,7 +22,7 @@ from models.models.u2net import U2NET
 from models.models.attent_unet import AttU_Net
 
 from dataset import InferenceDataset
-from utils.util import set_seed, gpu_test, unpad, restore_img, remove_noise, read_file
+from utils.util import set_seed, gpu_test, unpad, restore_img, remove_noise, read_file, get_data_info
 from utils.save_data import save_nc, label_binary_image, mask_to_hexagon, mask_to_shp
 from utils.visualize import compare_result
 from datetime import datetime
@@ -29,11 +30,9 @@ from PIL import Image
 
 Image.MAX_IMAGE_PIXELS = None
 
-
-INPUT_CHANNEL_NUM = 4
-INPUT = (256, 256)
-CLASSES = 1  # For Binary Segmentatoin
-
+# Data Info
+INPUT_CHANNEL_NUM = get_data_info("data\Train\Image")
+CLASSES = get_data_info("data\Train\Mask")
 
 @click.command()
 @click.option("-D", "--data-dir", type=str, default='data\\Train', required=True, help="Path for Data Directory")
@@ -138,25 +137,36 @@ def main(
         for i, (images, _) in enumerate(inference_dataloader):
             images = images.to(device)
 
-            outputs = model(images)
-            
-            pred_mask_binary = F.sigmoid(outputs[0].squeeze()) > 0.5
-            pred_mask_np = pred_mask_binary.cpu().detach().numpy()
+            if CLASSES == 1:  # Binary Segmentation
+                pred_mask = model(images)
+                pred_mask = F.sigmoid(pred_mask[0].squeeze()) > 0.5
+            else:  # Multi-class Segmentation
+                outputs = F.softmax(outputs, dim=1)
+                pred_mask = torch.argmax(outputs, dim=1)    
+
+            pred_mask_np = pred_mask.cpu().detach().numpy()
             pred_mask_np = unpad(pred_mask_np, pad_length)
             image_list.append(pred_mask_np)
 
     # Restore Images  
     click.secho(message="🔎 Restoring data...", fg="green")
-
     restored = restore_img(image_list, image_height, image_width, 224)
     restored_img = np.array(restored, np.uint8) 
     img = Image.fromarray((restored_img*255))
 
     # Save into JPG images
     click.secho(message="🔎 Save into .jpg format data...", fg="green")
-
     jpg_path = os.path.join(inference_output_dir, 'Inference_output.jpg')
-    img.save((jpg_path), 'JPEG')
+    if CLASSES == 1:
+        img.save((jpg_path), 'JPEG')
+    else:
+        cmap = plt.get_cmap('viridis', CLASSES)
+        colored_segmentation = np.zeros((*img.shape, 3), dtype=np.uint8)
+        for class_id in range(CLASSES):
+            color = np.array(cmap(class_id)[:3]) * 255
+            colored_segmentation[img == class_id] = color
+        colored_image = Image.fromarray(colored_segmentation)
+        colored_image.save((jpg_path), 'JPEG')
 
     # Save into NC images
     click.secho(message="🔎 Save into .nc format data...", fg="green")
@@ -177,7 +187,6 @@ def main(
     # Save Hexagon data into Shapefile(Polygon)
     click.secho(message="🔎 Save Hexagon data...", fg="green")
     hexbin_path = os.path.join(inference_output_dir, 'Hexbin.shp')
-
     mask_to_hexagon(inference_output = restored_img, 
                     output_path = hexbin_path, 
                     grid_size = (134, 110), 
@@ -187,7 +196,6 @@ def main(
 
     # Compare with Manual data
     click.secho(message="🔎 Comparing Images...", fg="green")
-
     prediction_path = os.path.join(inference_output_dir, 'Inference_output.jpg')
     prediction = Image.open(prediction_path)
     prediction_np = np.array(prediction)

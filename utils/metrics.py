@@ -7,26 +7,48 @@ import warnings
 warnings.filterwarnings('ignore')
 from typing import Any
 
-def calculate_metrics(pred_mask: Any, true_mask: Any) -> torch.Tensor:
+def calculate_metrics(pred_mask: Any, true_mask: Any, classes: Any) -> torch.Tensor:
     '''
     Calculate Metrics
 
     Metrics : IOU, Pixel Accuracy, Precision, Recall, F1 score.
     '''
-    pred_mask = pred_mask.view(-1).float()
-    true_mask = true_mask.view(-1).float()
-    eps=1e-9
+    eps = 1e-7
+    iou_list = []
 
-    # Calculating precision, recall, and F1 score using PyTorch
-    TP = ((pred_mask == 1) & (true_mask == 1)).sum()
-    FP = ((pred_mask == 1) & (true_mask == 0)).sum()
-    FN = ((pred_mask == 0) & (true_mask == 1)).sum()
-    TN = ((pred_mask == 0) & (true_mask == 0)).sum()
-    
-    iou = (TP + eps) / (TP + FP + FN + eps) 
-    pixel_acc = (TP + TN + eps) / (TP + TN + FP + FN + eps)
-    precision = (TP + eps) / (TP + FP + eps)
-    recall = (TP + eps) / (TP + FN + eps)
-    f1 = 2*(precision * recall)/(precision + recall)
+    if classes == 1:
+        TP = ((pred_mask == 1) & (true_mask == 1)).sum()
+        FP = ((pred_mask == 1) & (true_mask == 0)).sum()
+        FN = ((pred_mask == 0) & (true_mask == 1)).sum()
 
-    return iou.item(), pixel_acc.item(), precision.item(), recall.item(), f1.item()
+        pixel_accuracy = (pred_mask == true_mask).float().mean()
+        iou = (TP + eps) / (TP + FP + FN + eps) 
+        precision = (TP + eps) / (TP + FP + eps)
+        recall = (TP + eps) / (TP + FN + eps)
+        f1 = 2*(precision * recall)/(precision + recall)
+
+    else:
+        true_mask_argmax = torch.zeros_like(pred_mask)
+        for class_id in range(classes):
+            # Convert true mask into argmax type
+            true_mask_argmax[true_mask[:, class_id, :, :] > 0] = class_id
+
+            TP = ((pred_mask == class_id) & (true_mask_argmax == class_id)).sum()
+            FP = ((pred_mask == class_id) & (true_mask_argmax != class_id)).sum()
+            FN = ((pred_mask != class_id) & (true_mask_argmax == class_id)).sum()
+
+            iou = (TP + eps) / (TP + FP + FN + eps) 
+            iou_list.append(iou)
+            
+            if class_id == 0:  # Assuming background is class 0
+                continue
+            
+            pixel_accuracy = (pred_mask == true_mask_argmax).float().mean()
+            precision = (TP + eps) / (TP + FP + eps)
+            recall = (TP + eps) / (TP + FN + eps)
+            f1 = 2*(precision * recall)/(precision + recall)
+        
+        mean_iou = sum(iou_list) / len(iou_list)
+        iou = mean_iou
+
+    return iou, pixel_accuracy.item(), precision.item(), recall.item(), f1.item()

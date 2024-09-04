@@ -8,6 +8,7 @@ import traceback
 import torch
 import torch.optim as optim
 import torch.nn as nn
+import torch.nn.functional as F
 import albumentations as A
 import gc
 
@@ -26,16 +27,19 @@ from models.models.u2net import U2NET
 from models.models.attent_unet import AttU_Net
 
 from loss import DiceLoss, DiceBCELoss, IoULoss, FocalLoss, TverskyLoss
-from utils.util import gpu_test, set_seed, count_parameters
+from utils.util import gpu_test, set_seed, count_parameters, get_data_info
 from utils.metrics import calculate_metrics
 from utils.visualize import visualize_training_log, visualize
 from datetime import datetime
 from scheduler import CosineAnnealingWarmUpRestarts
 
-INPUT_CHANNEL_NUM = 3
-INPUT = (256, 256)
-CLASSES = 1  # For Binary Segmentatoin
-
+# Data Info
+INPUT_CHANNEL_NUM = get_data_info("data\Train\Image")
+CLASSES = get_data_info("data\Train\Mask")
+if CLASSES == 1:
+    is_binary = True
+else:
+    is_binary = False
 
 @click.command()
 @click.option("-D", "--data-dir", type=str, default='data\\Train', help="Path for Data Directory")
@@ -43,7 +47,7 @@ CLASSES = 1  # For Binary Segmentatoin
     "-M",
     "--model-name",
     type=str,
-    default='unet',
+    default='attentunet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
@@ -143,21 +147,25 @@ def main(
     print("Total Parameters(M):", num_params/1000000)
 
     # Loss Function Setting
-    criterion = DiceLoss()
-    #criterion = nn.BCELoss()
-    #criterion = DiceBCELoss()
-    #criterion = IoULoss()
-    #criterion = FocalLoss()
-    #criterion = TverskyLoss()
+    if CLASSES == 1:
+        criterion = DiceLoss()
+        #criterion = nn.BCELoss()
+        #criterion = DiceBCELoss()
+        #criterion = IoULoss()
+        #criterion = FocalLoss()
+        #criterion = TverskyLoss()
+    else:
+        criterion = nn.CrossEntropyLoss()
 
-    # Optimizer & Scheduler Setting
+    # Optimizer 
     optimizer = optim.AdamW(model.parameters(), lr = learning_rate)
     #optimizer = optim.Adam(model.parameters(), lr = learning_rate)
+    #optimizer = optim.SGD(model.parameters(), lr = learning_rate)
 
+    # Setting
     #scheduler = CosineAnnealingWarmUpRestarts(optimizer, T_0=150, T_mult=1, eta_max=0.1,  T_up=10, gamma=0.5)
-    #scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer,
-    #                                    lr_lambda=lambda epoch: 0.95 ** epoch)
-    #scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+    #scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=lambda epoch: 0.95 ** epoch)
+    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
     # For Early-Stopping
     patience_epochs = 50
@@ -223,33 +231,40 @@ def main(
             current_lr = optimizer.param_groups[0]["lr"]
 
             iter = 0
-            for images, masks in train_dataloader:
-                images, masks = images.to(device), masks.to(device)
+            for images, true_masks in train_dataloader:
+                images, true_masks = images.to(device), true_masks.to(device)
 
-                optimizer.zero_grad()
-        
-                outputs = model(images)
+                optimizer.zero_grad()   
+
+                pred_masks = model(images)
+                if CLASSES != 1:  # Multiclass Segmentation
+                    pred_masks = F.softmax(pred_masks, dim=1)
 
                 # Visualize train process
                 if epoch % 20 == 0:
-                    visualize(images, outputs, masks,
+                    visualize(images, pred_masks, true_masks,
                               img_save_path= train_output_dir,
                               epoch = str(epoch), iter = str(iter),
-                              type='train', num = None)
+                              type='train', num = None, is_binary = is_binary)
 
-                t_loss = criterion(outputs, masks)
+                t_loss = criterion(pred_masks, true_masks)
                 t_loss.backward()
 
                 optimizer.step()
 
                 train_loss += t_loss.item()
                 iter += 1
-                
+                                    
+
                 # Calculating metrics for training
                 with torch.no_grad():
-                    pred_masks = outputs > 0.5
+                    if CLASSES == 1:  # Binary Segmentation
+                        pred_masks = pred_masks > 0.5
+                    else:  # Multi-class Segmentation
+                        pred_masks = torch.argmax(pred_masks, dim=1)
+                    
                     iou_train, pixel_accuracy_train, precision_train, recall_train, f1_train = calculate_metrics(
-                        pred_masks, masks
+                        pred_masks, true_masks, CLASSES
                     )
 
                     total_iou_train += iou_train
@@ -276,7 +291,7 @@ def main(
             avg_recall_train = total_recall_train / len(train_dataloader)
             avg_f1_train = total_f1_train / len(train_dataloader)
 
-            #scheduler.step(t_loss)
+            scheduler.step(t_loss)
 
             # VALIDATION
             model.eval()
@@ -290,17 +305,24 @@ def main(
             val_dataloader = tqdm(val_dataloader, desc=f"Validation", unit="batch")
 
             with torch.no_grad():
-                for images, masks in val_dataloader:
-                    images, masks = images.to(device), masks.to(device)
-                    outputs = model(images)
+                for images, true_masks in val_dataloader:
+                    images, true_masks = images.to(device), true_masks.to(device)
 
-                    v_loss = criterion(outputs, masks)
+                    pred_masks = model(images)
+                    if CLASSES != 1:  # Multiclass Segmentation
+                        pred_masks = F.softmax(pred_masks, dim=1)
+
+                    v_loss = criterion(pred_masks, true_masks)
                     val_loss += v_loss.item()
 
                     # Calculating metrics for Validation
-                    pred_masks = outputs > 0.5
+                    if CLASSES == 1:  # Binary Segmentation
+                        pred_masks = pred_masks > 0.5
+                    else:  # Multi-class Segmentation
+                        pred_masks = torch.argmax(pred_masks, dim=1)
+
                     iou_val, pixel_accuracy_val, precision_val, recall_val, f1_val = calculate_metrics(
-                        pred_masks, masks
+                        pred_masks, true_masks, CLASSES
                     )
 
                     total_iou_val += iou_val
@@ -312,11 +334,11 @@ def main(
                     # Displaying metrics in progress bar description
                     val_dataloader.set_postfix(
                         val_loss=v_loss.item(),
-                        val_iou=iou_val,
-                        val_pix_acc=pixel_accuracy_val,
-                        val_precision=precision_val,
-                        val_recall=recall_val,
-                        val_f1=f1_val,
+                        val_iou=iou_val.item(),
+                        val_pix_acc=pixel_accuracy_val.item(),
+                        val_precision=precision_val.item(),
+                        val_recall=recall_val.item(),
+                        val_f1=f1_val.item(),
                         lr=current_lr,
                     )
 
@@ -327,7 +349,7 @@ def main(
             avg_recall_val = total_recall_val / len(val_dataloader)
             avg_f1_val = total_f1_val / len(val_dataloader)
 
-            #scheduler.step(val_loss)
+            scheduler.step(val_loss)
 
             print(
                 f"{'-'*50}"

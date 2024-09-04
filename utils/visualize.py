@@ -12,58 +12,68 @@ warnings.filterwarnings('ignore')
 from typing import Any
 
 
-def visualize( 
-        original_img: Any,
-        pred_mask: Any,
-        true_mask: Any,
-        img_save_path : str,
-        epoch : str,
-        iter : str,
-        type : str,
-        num
-        ) -> None:
-    '''
-    Visualize training process per epoch and Save it
+def visualize(
+        original_img: np.ndarray,
+        pred_mask: np.ndarray,
+        true_mask: np.ndarray,
+        img_save_path: str,
+        epoch: str,
+        iter: str,
+        type: str,
+        num: int,
+        is_binary: bool = False
+) -> None:
+    """
+    Visualize the training/test process and save the result.
 
-    Modify band_names variable as your need
-    '''
-    # Get data
-    original_img_cpu = original_img[0].cpu().numpy()
-    pred_mask_binary = F.sigmoid(pred_mask[0, 0]) > 0.5
-    pred = pred_mask_binary.cpu().detach().numpy()
-    pred = np.expand_dims(pred, axis=2)
-    true = true_mask[0].cpu().detach().numpy()
+    Args:
+        original_img (np.ndarray): Input image tensor with shape (C, H, W).
+        pred_mask (np.ndarray): Predicted mask tensor with shape (C, H, W) for multiclass or (1, H, W) for binary.
+        true_mask (np.ndarray): Ground truth mask tensor with shape (C, H, W) for multiclass or (1, H, W) for binary.
+        img_save_path (str): Path to save the visualization image.
+        epoch (str): Current epoch.
+        iter (str): Current iteration.
+        type (str): 'train' or 'test'.
+        num (int): Unique identifier for the visualization.
+        is_binary (bool, optional): Whether it's a binary segmentation problem. Defaults to False.
+    """
+    original_img = original_img.cpu()[0]
+    pred_mask = pred_mask.detach().cpu()[0]
+    true_mask = true_mask.swapaxes(1,3).detach().cpu()[0]
 
-    # Read Band Information
-    band_number = original_img_cpu.shape[0]
-    plt.figure(figsize=(20,12))
-    band_names = ['NDWI', 'NIR', 'RED'] # Modify as your need
-    band_number = len(band_names)
+    plt.figure(figsize=(20, 12))
 
-    # Visualize
-    row = 2
-    col = int(math.ceil(band_number/2)) + 1
-    for i in range(len(band_names)):
-        band = original_img_cpu[i,:,:]
-        plt.subplot(row, col, i+1)
-        plt.imshow(band, cmap='gray')
-        plt.title('{}'.format(band_names[i]))
+    # Plot original image
+    num_channels = original_img.shape[0]
+    rows = 2
+    cols = num_channels + 2
 
-    # Prediction
-    plt.subplot(row, col, band_number+1)
-    plt.imshow(pred, cmap='gray')
-    plt.title('Prediction')
+    for i in range(num_channels):
+        plt.subplot(rows, cols, i + 1)
+        plt.imshow(original_img[i], cmap='gray')
+        plt.title(f'Band {i + 1}')
 
-    # True Mask
-    plt.subplot(row, col, band_number+2)
-    plt.imshow(true, cmap='gray')
-    plt.title('True Mask')
-
-    # img save
-    if type == 'train':
-        filename = 'Training_result_epoch_{}_iter_{}.png'.format(epoch, iter)
+    # Plot predicted mask
+    if is_binary:
+        plt.subplot(rows, cols, num_channels + 1)
+        plt.imshow(pred_mask[0], cmap='gray')
+        plt.title('Prediction')
     else:
-        filename = 'Test_result_{}.png'.format(num)
+        for i in range(pred_mask.shape[0]):
+            plt.subplot(rows, cols, num_channels + i + 1)
+            plt.imshow(pred_mask[i], cmap='gray')
+            plt.title(f'Pred Class {i}')
+
+    # Plot ground truth mask
+    plt.subplot(rows, cols, num_channels + num_channels + 1)
+    plt.imshow(true_mask if is_binary else np.argmax(true_mask, axis=2), cmap='gray')
+    plt.title('Ground Truth')
+
+    # Save the visualization
+    if type == 'train':
+        filename = f'Training_result_epoch_{epoch}_iter_{iter}.png'
+    else:
+        filename = f'Test_result_{num}.png'
     plt.savefig(os.path.join(img_save_path, filename))
     plt.close()
 

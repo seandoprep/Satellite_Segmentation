@@ -147,6 +147,28 @@ def band_norm(band : np.array, norm_type : str, value_check : bool):
     return band_norm
 
 
+def get_files(file_path):
+    exts = []
+    file_list= os.listdir(file_path)
+    for file in file_list:
+        ext = os.path.splitext(file)[-1].lower()
+        exts.append(ext)
+    ext = list(set(exts))
+    return ext
+
+
+def get_data_info(file_path):
+    files_path = []
+    ext = get_files(file_path)
+    if any(e in ['.hdr', '.tif', '.tiff', '.nc'] for e in ext):
+        files_path = sorted(glob(os.path.join(file_path, "*.hdr"))  +
+                            glob(os.path.join(file_path, "*.tif"))  + 
+                            glob(os.path.join(file_path, "*.tiff")) +
+                            glob(os.path.join(file_path, "*.nc"))) 
+    result = len(files_path)
+    return result
+
+
 def read_file(file_path, norm=True, norm_type='linear_norm'):
     '''
     Read ENVI, TIFF, TIF, NC file Format and return it as numpy array type.
@@ -155,15 +177,10 @@ def read_file(file_path, norm=True, norm_type='linear_norm'):
     Return : Numpy array of stacked satellite data.
     '''
     data_array = []
-    exts = []
-    file_list= os.listdir(file_path)
-    for file in file_list:
-        ext = os.path.splitext(file)[-1].lower()
-        exts.append(ext)
-    ext = list(set(exts))
+    ext = get_files(file_path)
 
     # ENVI type 
-    if all(e in ['.hdr', '.img'] for e in ext):
+    if any(e in ['.hdr', '.img'] for e in ext):
         hdr_files_path = sorted(glob(os.path.join(file_path, "*.hdr")))
         img_files_path = sorted(glob(os.path.join(file_path, "*.img")))
         band_nums = len(hdr_files_path)
@@ -203,25 +220,6 @@ def read_file(file_path, norm=True, norm_type='linear_norm'):
                 img = band_norm(img, norm_type, False)
             data_array.append(img)
         ds.close()
-
-    # # jpg, png, jpeg type 
-    # elif any(e in ['.jpg', '.jpeg', '.png'] for e in ext):
-    #     jpgs_files_path = sorted(glob(os.path.join(file_path, "*.jpg")) + 
-    #                             glob(os.path.join(file_path, "*.jpeg")) + 
-    #                             glob(os.path.join(file_path, "*.png")))
-    #     for i in range(len(jpgs_files_path)):
-    #         jpg_file_path = jpgs_files_path[i]
-    #         if img.shape[0] == 1:
-    #             img = np.array(Image.open(jpg_file_path)).convert('L') # convert into gray scale
-    #         else:
-    #             img = np.array(Image.open(jpg_file_path))
-
-    #         if norm:
-    #             img = img[:,:,0]
-    #             img = band_norm(img, norm_type, False)
-    #         else:
-    #             img = img[:,:,0]
-    #         data_array.append(img)
 
     else:
         raise ValueError(f"Unsupported file format: {ext}")

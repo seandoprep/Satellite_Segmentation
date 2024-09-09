@@ -78,7 +78,8 @@ class SatelliteDataset(Dataset):
         if self.transform:
             augmentations = self.transform(image=padded_img, mask=padded_mask)
             processed_img = augmentations["image"]
-            processed_mask = augmentations["mask"].swapaxes(0,2)
+            processed_mask = augmentations["mask"]
+
         else:
             processed_img = transforms.ToTensor(padded_img)
             processed_mask = transforms.ToTensor(padded_mask)
@@ -113,11 +114,11 @@ class InferenceDataset(Dataset):
         
         padded_img = np.pad(img, ((0,0),(16,16),(16,16)), 'constant', constant_values=0).swapaxes(0,2).swapaxes(0,1)
         padded_mask = np.pad(mask, ((0,0),(16,16),(16,16)), 'constant', constant_values=0).swapaxes(0,2).swapaxes(0,1)
-        
+
         if self.transform:
             augmentations = self.transform(image=padded_img, mask=padded_mask)
             processed_img = augmentations["image"]
-            processed_mask = augmentations["mask"].swapaxes(0,2)
+            processed_mask = augmentations["mask"]
         else:
             processed_img = transforms.ToTensor(padded_img)
             processed_mask = transforms.ToTensor(padded_mask)

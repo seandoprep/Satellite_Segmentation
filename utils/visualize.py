@@ -39,7 +39,7 @@ def visualize(
     """
     original_img = original_img.cpu()[0]
     pred_mask = pred_mask.detach().cpu()[0]
-    true_mask = true_mask.swapaxes(1,3).detach().cpu()[0]
+    true_mask = true_mask.detach().cpu()[0]
 
     plt.figure(figsize=(20, 12))
 
@@ -66,7 +66,7 @@ def visualize(
 
     # Plot ground truth mask
     plt.subplot(rows, cols, num_channels + num_channels + 1)
-    plt.imshow(true_mask if is_binary else np.argmax(true_mask, axis=2), cmap='gray')
+    plt.imshow(true_mask[0] if is_binary else np.argmax(true_mask, axis=0), cmap='gray')
     plt.title('Ground Truth')
 
     # Save the visualization

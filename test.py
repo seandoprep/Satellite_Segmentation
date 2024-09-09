@@ -38,7 +38,7 @@ else:
     "-M",
     "--model-name",
     type=str,
-    default='deeplabv3plus',
+    default='attentunet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
@@ -127,26 +127,27 @@ def main(
 
     with torch.no_grad():
         for i, (image, true_mask) in enumerate(test_dataloader):
-            image = image.to(device)
-            true_mask = true_mask.to(device)
+            true_mask = true_mask.permute(0,3,1,2)
+
+            image, true_mask = image.to(device), true_mask.to(device)
 
             pred_mask = model(image)
             if CLASSES != 1:  # # Multiclass Segmentation
                 pred_mask = F.softmax(pred_mask, dim=1)
 
-            visualize(image, pred_mask, true_mask,
-                      img_save_path= test_output_dir, 
-                      epoch='none', iter='none', type='test', 
-                      num = i, is_binary = is_binary)
-            
             # Calculating metrics for testing
             if CLASSES == 1:  # Binary Segmentation
                 pred_mask = pred_mask > 0.5
             else:  # Multi-class Segmentation
                 pred_mask = torch.argmax(pred_mask, dim=1)
-            
+
+            visualize(image, pred_mask, true_mask,
+                      img_save_path= test_output_dir, 
+                      epoch='none', iter='none', type='test', 
+                      num = i, is_binary = is_binary)
+         
             iou_test, pixel_accuracy_test, precision_test, recall_test, f1_test = calculate_metrics(
-                pred_mask, true_mask
+                pred_mask, true_mask, CLASSES
             )
 
             total_iou_test += iou_test
@@ -157,7 +158,7 @@ def main(
         
             # Displaying metrics in the progress bar description
             test_dataloader.set_postfix(
-                test_iou=iou_test,
+                test_iou=iou_test.item(),
                 test_pix_acc=pixel_accuracy_test,
                 test_precision=precision_test,
                 test_recall=recall_test,

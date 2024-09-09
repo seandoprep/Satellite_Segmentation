@@ -41,6 +41,7 @@ if CLASSES == 1:
 else:
     is_binary = False
 
+
 @click.command()
 @click.option("-D", "--data-dir", type=str, default='data\\Train', help="Path for Data Directory")
 @click.option(
@@ -61,7 +62,7 @@ else:
     "-L",
     "--learning-rate",
     type=float,
-    default=1e-3,
+    default=0.001,
     help="Learning Rate for model. Default - 1e-3",
 )
 @click.option(
@@ -155,8 +156,8 @@ def main(
         #criterion = FocalLoss()
         #criterion = TverskyLoss()
     else:
-        criterion = nn.CrossEntropyLoss()
-
+        #criterion = nn.CrossEntropyLoss()
+        criterion = nn.BCEWithLogitsLoss()
     # Optimizer 
     optimizer = optim.AdamW(model.parameters(), lr = learning_rate)
     #optimizer = optim.Adam(model.parameters(), lr = learning_rate)
@@ -232,22 +233,14 @@ def main(
 
             iter = 0
             for images, true_masks in train_dataloader:
+                true_masks = true_masks.permute(0,3,1,2)
                 images, true_masks = images.to(device), true_masks.to(device)
 
                 optimizer.zero_grad()   
 
-                pred_masks = model(images)
-                if CLASSES != 1:  # Multiclass Segmentation
-                    pred_masks = F.softmax(pred_masks, dim=1)
+                outputs = model(images)
 
-                # Visualize train process
-                if epoch % 20 == 0:
-                    visualize(images, pred_masks, true_masks,
-                              img_save_path= train_output_dir,
-                              epoch = str(epoch), iter = str(iter),
-                              type='train', num = None, is_binary = is_binary)
-
-                t_loss = criterion(pred_masks, true_masks)
+                t_loss = criterion(outputs, true_masks)
                 t_loss.backward()
 
                 optimizer.step()
@@ -255,14 +248,20 @@ def main(
                 train_loss += t_loss.item()
                 iter += 1
                                     
-
                 # Calculating metrics for training
                 with torch.no_grad():
                     if CLASSES == 1:  # Binary Segmentation
-                        pred_masks = pred_masks > 0.5
+                        pred_masks = outputs > 0.5
                     else:  # Multi-class Segmentation
-                        pred_masks = torch.argmax(pred_masks, dim=1)
-                    
+                        pred_masks = torch.argmax(outputs, dim=1)
+
+                    # Visualize train process
+                    if epoch % 20 == 0:
+                        visualize(images, pred_masks, true_masks,
+                                img_save_path= train_output_dir,
+                                epoch = str(epoch), iter = str(iter),
+                                type='train', num = None, is_binary = is_binary)
+
                     iou_train, pixel_accuracy_train, precision_train, recall_train, f1_train = calculate_metrics(
                         pred_masks, true_masks, CLASSES
                     )
@@ -276,7 +275,7 @@ def main(
                 # Displaying metrics in the progress bar description
                 train_dataloader.set_postfix(
                     loss=t_loss.item(),
-                    train_iou=iou_train,
+                    train_iou=iou_train.item(),
                     train_pix_acc=pixel_accuracy_train,
                     train_precision=precision_train,
                     train_recall=recall_train,
@@ -291,7 +290,7 @@ def main(
             avg_recall_train = total_recall_train / len(train_dataloader)
             avg_f1_train = total_f1_train / len(train_dataloader)
 
-            scheduler.step(t_loss)
+            scheduler.step(train_loss)
 
             # VALIDATION
             model.eval()
@@ -307,17 +306,16 @@ def main(
             with torch.no_grad():
                 for images, true_masks in val_dataloader:
                     images, true_masks = images.to(device), true_masks.to(device)
+                    true_masks = true_masks.permute(0,3,1,2)
 
                     pred_masks = model(images)
-                    if CLASSES != 1:  # Multiclass Segmentation
-                        pred_masks = F.softmax(pred_masks, dim=1)
 
                     v_loss = criterion(pred_masks, true_masks)
                     val_loss += v_loss.item()
 
                     # Calculating metrics for Validation
                     if CLASSES == 1:  # Binary Segmentation
-                        pred_masks = pred_masks > 0.5
+                        pred_mask = F.sigmoid(pred_mask) > 0.5
                     else:  # Multi-class Segmentation
                         pred_masks = torch.argmax(pred_masks, dim=1)
 
@@ -335,10 +333,10 @@ def main(
                     val_dataloader.set_postfix(
                         val_loss=v_loss.item(),
                         val_iou=iou_val.item(),
-                        val_pix_acc=pixel_accuracy_val.item(),
-                        val_precision=precision_val.item(),
-                        val_recall=recall_val.item(),
-                        val_f1=f1_val.item(),
+                        val_pix_acc=pixel_accuracy_val,
+                        val_precision=precision_val,
+                        val_recall=recall_val,
+                        val_f1=f1_val,
                         lr=current_lr,
                     )
 

@@ -40,7 +40,7 @@ CLASSES = get_data_info("data\Train\Mask")
     "-M",
     "--model-name",
     type=str,
-    default='unet',
+    default='attentunet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(

@@ -10,7 +10,7 @@ from typing import Any
 Code from : https://www.kaggle.com/code/sungjunghwan/loss-function-of-image-segmentation
 '''
 
-SMOOTH = 1e-10
+SMOOTH = 1e-6
 
 class DiceLoss(nn.Module):
     def __init__(self) -> None:

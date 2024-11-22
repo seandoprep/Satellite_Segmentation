@@ -24,8 +24,8 @@ def calculate_metrics(pred_mask: torch.Tensor, true_mask: torch.Tensor, classes:
     eps = 1e-6
 
     if classes == 1:  # Binary segmentation
-        pred_mask = pred_mask.view(-1)
-        true_mask = true_mask.view(-1)
+        pred_mask = pred_mask.contiguous().view(-1)
+        true_mask = true_mask.contiguous().view(-1)
 
         TP = (pred_mask * true_mask).sum()
         FP = ((pred_mask == 1) & (true_mask == 0)).sum()
@@ -39,8 +39,8 @@ def calculate_metrics(pred_mask: torch.Tensor, true_mask: torch.Tensor, classes:
         f1 = 2 * (precision * recall) / (precision + recall + eps)
 
     else:  # Multi-class segmentation
-        pred_mask = pred_mask.view(-1)
-        true_mask = true_mask.argmax(dim=1).view(-1)
+        pred_mask = pred_mask.contiguous().view(-1)
+        true_mask = true_mask.argmax(dim=1).contiguous().view(-1)
 
         pixel_accuracy_list = []
         iou_list = []

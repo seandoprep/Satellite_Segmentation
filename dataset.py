@@ -24,7 +24,7 @@ class SatelliteDataset(Dataset):
         self.data_dir = data_dir
         self.image_dir = os.path.join(data_dir, "Image")
         self.mask_dir = os.path.join(data_dir, "Mask")
-        self.image_list = pad_crop(read_file(self.image_dir, True, 'dynamic_world_norm'), 224)
+        self.image_list = pad_crop(read_file(self.image_dir, True, 'z_score_norm'), 224)
         self.mask_list = pad_crop(read_file(self.mask_dir, True, 'mask_norm'), 224)
         self.split = split
         self.val_ratio = val_ratio
@@ -37,15 +37,15 @@ class SatelliteDataset(Dataset):
         indices = find_arrays_with_object(self.mask_list)
         
         # Add Non-aquaculture data
-        cnt = 0
-        for num in range(len(self.image_list)):   
-            cnt += 1 
-            if num in indices:
-                pass
-            else:
-                indices.append(num)    
-            if cnt == 200:
-                break
+        # cnt = 0
+        # for num in range(len(self.image_list)):   
+        #     cnt += 1 
+        #     if num in indices:
+        #         pass
+        #     else:
+        #         indices.append(num)    
+        #     if cnt == 200:
+        #         break
 
         num_samples = len(indices)
 

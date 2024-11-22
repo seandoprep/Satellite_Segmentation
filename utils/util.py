@@ -82,6 +82,21 @@ def restore_img(image_list : list, original_height : int, original_width : int, 
     return restored_img
 
 
+def replace_mean_pixel_value(band):
+    '''
+    Replace land pixel values into mean sea water pixel values
+    '''
+
+    # All values become positive
+    band_abs = band - np.min(band)
+    
+    # Replace land pixel values into sea water mean pixel values
+    band_mean = np.mean(band_abs[band_abs != -np.min(band)])   
+    band_abs[band_abs == -np.min(band)] = band_mean
+
+    return band_abs
+
+
 def band_norm(band : np.array, norm_type : str, value_check : bool):
     '''
     Band Normalization for Satellite Image(Sentinel-1/2). 
@@ -91,23 +106,21 @@ def band_norm(band : np.array, norm_type : str, value_check : bool):
 
     Tips : 
     1) Negative values are changed to Positive values for deep learning training
-    2) norm_type should be one of linear_norm, or dynamic_world_norm
+    2) norm_type should be one of linear_norm, dynamic_world_norm, or z_score_norm
     3) Modify boundary values as necessary
     4) This code is suited for Input Image which is already Land/Sea Masked(Land value : 0)
      
-    Need to add z-score, std normalization
     Reference : https://medium.com/sentinel-hub/how-to-normalize-satellite-images-for-deep-learning-d5b668c885af
     '''
     SMOOTH = 1e-5
-
-    if np.any(band < 0):
-        band_abs = band - np.min(band)
-        band_mean = np.mean(band_abs[band_abs != -np.min(band)])
-        band_abs[band_abs == -np.min(band)] = band_mean
-    else:
-        band_abs = band
-
+    
     if norm_type == 'linear_norm':
+
+        if np.any(band < 0):
+            band_abs = replace_mean_pixel_value(band)
+        else:
+            band_abs = band
+
         input_band_lower_bound, input_band_upper_bound = np.percentile(band_abs[band_abs != -np.min(band)], 1), np.percentile(band_abs[band_abs != -np.min(band)], 99)
         input_band_range = input_band_upper_bound - input_band_lower_bound
 
@@ -115,7 +128,12 @@ def band_norm(band : np.array, norm_type : str, value_check : bool):
         band_norm = np.clip((band_norm) / np.max(band_norm), 0, 1)  # Let Value Range : [0, 1]
 
     elif norm_type == 'dynamic_world_norm':
-    
+
+        if np.any(band < 0):
+            band_abs = replace_mean_pixel_value(band)
+        else:
+            band_abs = band
+
         def sigmoid(x):
             return 1 / (1 + np.exp(-(x+SMOOTH)))
 
@@ -126,12 +144,24 @@ def band_norm(band : np.array, norm_type : str, value_check : bool):
         input_band_range = input_band_upper_bound - input_band_lower_bound
 
         band_norm = sigmoid((band_log - input_band_lower_bound) / (input_band_range))  # Let Value Range : [0, 1] by Sigmoid Operation
-    
+
+    elif norm_type == 'z_score_norm':
+        
+        # Z-score Normalization
+        band_mean = np.mean(band[band != 0])   
+        band_std = np.std(band[band != 0])   
+        band_z_scores = (band - band_mean) / band_std
+        
+        # Scaling into [0,1]
+        min_z = np.min(band_z_scores)
+        max_z = np.max(band_z_scores)
+        band_norm = (band_z_scores - min_z) / (max_z - min_z)
+
     elif norm_type == 'mask_norm':
         band_norm = band_abs / 255.0
 
     else:
-        raise Exception("norm_type should be one of 'linear_norm', or 'dynamic_world_norm'.")
+        raise Exception("norm_type should be one of 'linear_norm', 'dynamic_world_norm', 'z_score_norm'.")
 
     if value_check:
         print("Band Value :\n", band)
@@ -169,6 +199,7 @@ def get_data_info(file_path):
     return result
 
 
+
 def read_file(file_path, norm=True, norm_type='linear_norm'):
     '''
     Read ENVI, TIFF, TIF, NC file Format and return it as numpy array type.
@@ -189,11 +220,10 @@ def read_file(file_path, norm=True, norm_type='linear_norm'):
             envi_hdr_path = hdr_files_path[i]
             envi_img_path = img_files_path[i]
             data = envi.open(envi_hdr_path, envi_img_path)
+            img = np.array(data.load())[:,:,0]
             if norm:
-                img = np.array(data.load())[:,:,0]
                 img = band_norm(img, norm_type, False)
-            else:
-                img = np.array(data.load())[:,:,0]
+                print(img.shape)
             data_array.append(img)
 
     # TIFF, TIF type 
@@ -224,6 +254,8 @@ def read_file(file_path, norm=True, norm_type='linear_norm'):
     else:
         raise ValueError(f"Unsupported file format: {ext}")
 
+    
+    
     return np.array(data_array)
 
 
@@ -232,7 +264,9 @@ def remove_noise(binary_image, opening_kernel_size=(3, 3), closing_kernel_size=(
     Find Target Object.
 
     Input : Binarized array
-    Return : Binarized array with Morpological operations(Closing, Opening)
+    Return : Binarized array with Morpological operations(Closing, Opening) 
+
+    Shape constant based denoising should be aquired
     '''
 
     # Define the structuring elements for morphological operations

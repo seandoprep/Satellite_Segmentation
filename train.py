@@ -34,8 +34,8 @@ from datetime import datetime
 from scheduler import CosineAnnealingWarmUpRestarts
 
 # Data Info
-INPUT_CHANNEL_NUM = get_data_info("data\Train\Image")
-CLASSES = get_data_info("data\Train\Mask")
+INPUT_CHANNEL_NUM = get_data_info("D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Image")
+CLASSES = get_data_info("D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Mask")
 if CLASSES == 1:
     is_binary = True
 else:
@@ -43,12 +43,12 @@ else:
 
 
 @click.command()
-@click.option("-D", "--data-dir", type=str, default='data\\Train', help="Path for Data Directory")
+@click.option("-D", "--data-dir", type=str, default='D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train', help="Path for Data Directory")
 @click.option(
     "-M",
     "--model-name",
     type=str,
-    default='attentunet',
+    default='resunetplusplus',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
@@ -96,7 +96,7 @@ def main(
     """
     click.secho(message="🚀 Training...", fg="blue", nl=True)
 
-    set_seed(99)
+    set_seed(39)
     custom_transform = A.Compose([
         A.Rotate(limit=(-10, 10), p=0.7),
         A.HorizontalFlip(p=0.5),
@@ -156,13 +156,14 @@ def main(
         #criterion = FocalLoss()
         #criterion = TverskyLoss()
     else:
-        #criterion = nn.CrossEntropyLoss()
-        criterion = nn.BCEWithLogitsLoss()
+        criterion = nn.CrossEntropyLoss()
+        #criterion = nn.BCEWithLogitsLoss()
+
     # Optimizer 
     optimizer = optim.AdamW(model.parameters(), lr = learning_rate)
     #optimizer = optim.Adam(model.parameters(), lr = learning_rate)
-    #optimizer = optim.SGD(model.parameters(), lr = learning_rate)
-
+    #optimizer = optim.SGD(model.parameters(),lr=learning_rate, momentum=0.9, weight_decay=0.0005)
+    
     # Setting
     #scheduler = CosineAnnealingWarmUpRestarts(optimizer, T_0=150, T_mult=1, eta_max=0.1,  T_up=10, gamma=0.5)
     #scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=lambda epoch: 0.95 ** epoch)
@@ -238,9 +239,9 @@ def main(
 
                 optimizer.zero_grad()   
 
-                outputs = model(images)
+                pred_masks = model(images)
 
-                t_loss = criterion(outputs, true_masks)
+                t_loss = criterion(pred_masks, true_masks)
                 t_loss.backward()
 
                 optimizer.step()
@@ -251,10 +252,9 @@ def main(
                 # Calculating metrics for training
                 with torch.no_grad():
                     if CLASSES == 1:  # Binary Segmentation
-                        pred_masks = outputs > 0.5
+                        pred_masks = pred_masks > 0.5
                     else:  # Multi-class Segmentation
-                        pred_masks = torch.argmax(outputs, dim=1)
-
+                        pred_masks = torch.argmax(torch.softmax(pred_masks, dim=1), dim=1)
                     # Visualize train process
                     if epoch % 20 == 0:
                         visualize(images, pred_masks, true_masks,
@@ -315,9 +315,9 @@ def main(
 
                     # Calculating metrics for Validation
                     if CLASSES == 1:  # Binary Segmentation
-                        pred_mask = F.sigmoid(pred_mask) > 0.5
+                        pred_masks = F.sigmoid(pred_masks) > 0.5
                     else:  # Multi-class Segmentation
-                        pred_masks = torch.argmax(pred_masks, dim=1)
+                        pred_masks = torch.argmax(torch.softmax(pred_masks, dim=1), dim=1)
 
                     iou_val, pixel_accuracy_val, precision_val, recall_val, f1_val = calculate_metrics(
                         pred_masks, true_masks, CLASSES

@@ -31,8 +31,8 @@ from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 
 # Data Info
-INPUT_CHANNEL_NUM = get_data_info("data\Train\Image")
-CLASSES = get_data_info("data\Train\Mask")
+INPUT_CHANNEL_NUM = get_data_info("D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Image")
+CLASSES = get_data_info("D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Mask")
 
 @click.command()
 @click.option("-D", "--data-dir", type=str, default='data\\Train', required=True, help="Path for Data Directory")

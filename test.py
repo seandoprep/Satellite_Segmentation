@@ -25,8 +25,8 @@ from utils.visualize import visualize
 from datetime import datetime
 
 # Data Info
-INPUT_CHANNEL_NUM = get_data_info("data\Train\Image")
-CLASSES = get_data_info("data\Train\Mask")
+INPUT_CHANNEL_NUM = get_data_info("D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Image")
+CLASSES = get_data_info("D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Mask")
 if CLASSES == 1:
     is_binary = True
 else:
@@ -61,7 +61,7 @@ def main(
     """
     click.secho(message="🔎 Evaluation...", fg="blue")
 
-    set_seed(99)
+    set_seed(39)
     custom_transform = A.Compose([
         ToTensorV2(),
     ])
@@ -140,6 +140,10 @@ def main(
                 pred_mask = pred_mask > 0.5
             else:  # Multi-class Segmentation
                 pred_mask = torch.argmax(pred_mask, dim=1)
+
+            image = image[:, :, 16:-16, 16:-16]  # Unpad
+            pred_mask = pred_mask[:, :, 16:-16, 16:-16]  # Unpad
+            true_mask = true_mask[:, :, 16:-16, 16:-16]  # Unpad
 
             visualize(image, pred_mask, true_mask,
                       img_save_path= test_output_dir, 

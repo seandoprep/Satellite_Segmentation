@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import warnings
 import math
+import cv2
+
 warnings.filterwarnings('ignore')
 
 from typing import Any
@@ -18,7 +20,7 @@ def visualize(
         true_mask: np.ndarray,
         img_save_path: str,
         epoch: str,
-        iter: str,
+        iteration: str,
         type: str,
         num: int,
         is_binary: bool = False
@@ -41,41 +43,43 @@ def visualize(
     pred_mask = pred_mask.detach().cpu()[0]
     true_mask = true_mask.detach().cpu()[0]
 
-    plt.figure(figsize=(18, 12))
+    plt.figure(figsize=(12, 12))
 
-    # Plot original image
     num_channels = original_img.shape[0]
-    rows = 2
-    cols = num_channels + 3
+    rows = 4
+    cols = 4
 
     for i in range(num_channels):
+
+        # Plot original image
         plt.subplot(rows, cols, i + 1)
         plt.imshow(original_img[i], cmap='gray')
-        #plt.title(f'Band {i + 1}')
+        plt.title(f'Band {i + 1}')
         plt.axis("off")
 
     # Plot predicted mask
     if is_binary:
         plt.subplot(rows, cols, num_channels + 1)
         plt.imshow(pred_mask[0], cmap='gray')
-        #plt.title('Prediction')
+        plt.title('Prediction')
         plt.axis("off")
     else:
         for i in range(num_channels+1):
             class_mask = [pred_mask == i]
             plt.subplot(rows, cols, num_channels + i + 1)
             plt.imshow(class_mask[0], cmap='gray')
-            #plt.title(f'Class {i}' if i > 0 else 'Background')
+            plt.title(f'Class {i}' if i > 0 else 'Background')
             plt.axis("off")
+
     # Plot ground truth mask
     plt.subplot(rows, cols, num_channels + 2)
     plt.axis("off")
     plt.imshow(true_mask[0] if is_binary else np.argmax(true_mask, axis=0), cmap='gray')
-    #plt.title('Ground Truth')
+    plt.title('Ground Truth')
 
     # Save the visualization
     if type == 'train':
-        filename = f'Training_result_epoch_{epoch}_iter_{iter}.png'
+        filename = f'Training_result_epoch_{epoch}_iter_{iteration}.png'
     else:
         filename = f'Test_result_{num}.png'
 

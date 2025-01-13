@@ -160,8 +160,6 @@ python=3.9.18=h1aa4202_0
 python-dateutil=2.8.2=pyhd3eb1b0_0
 python-tzdata=2023.3=pyhd3eb1b0_0
 python_abi=3.9=2_cp39
-pytorch-cuda=11.7=h16d0643_5
-pytorch-mutex=1.0=cpu
 pytz=2023.3.post1=pypi_0
 pywavelets=1.4.1=pypi_0
 pyyaml=6.0.1=py39h2bbff1b_0
@@ -185,10 +183,7 @@ threadpoolctl=3.2.0=pypi_0
 tifffile=2023.7.18=pypi_0
 tiledb=2.3.3=hd8964de_3
 tk=8.6.12=h2bbff1b_0
-torch=2.0.1+cu117=pypi_0
-torchaudio=2.0.2+cu117=pypi_0
 torchsummary=1.5.1=pypi_0
-torchvision=0.15.2+cu117=pypi_0
 tqdm=4.65.0=pypi_0
 typing_extensions=4.7.1=py39haa95532_0
 tzdata=2023c=h04d1e81_0

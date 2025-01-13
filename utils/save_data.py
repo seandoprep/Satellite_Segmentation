@@ -44,7 +44,7 @@ def save_nc(save_path : str, prediction_array : np.array, lat_grid : np.array, l
     lon.long_name = 'longitude'
 
     # Define a 3D variable to hold the data
-    inf_result = ncfile.createVariable('prediction',np.int64,('lat','lon')) # Note: unlimited dimension is leftmost
+    inf_result = ncfile.createVariable('prediction',np.int8,('lat','lon')) # Note: unlimited dimension is leftmost
 
     # Add Coordinate Information
     lat[:] = lat_grid 
@@ -100,7 +100,7 @@ def label_binary_image(binary_array : np.array):
                 propagate_label(x, y)
                 label += 1
 
-    return np.array(labeled_image)
+    return np.array(labeled_image, dtype=np.int8)
 
 
 def save_to_shapefile(output_shapefile, geometry_type, contours, lon_grid, lat_grid, min_area):

@@ -1,10 +1,12 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
+os.environ['NO_ALBUMENTATIONS_UPDATE']='True'
 
 import sys
 import torch
 import click
 import traceback
+import wandb
 import albumentations as A
 import torch.nn.functional as F
 
@@ -25,20 +27,20 @@ from utils.visualize import visualize
 from datetime import datetime
 
 # Data Info
-INPUT_CHANNEL_NUM = get_data_info("D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Image")
-CLASSES = get_data_info("D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Mask")
+INPUT_CHANNEL_NUM = get_data_info("C:\workspace\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Image")
+CLASSES = get_data_info("C:\workspace\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Mask")
 if CLASSES == 1:
     is_binary = True
 else:
     is_binary = False
 
 @click.command()
-@click.option("-D", "--data-dir", type=str, default='data\\Train', required=True, help="Path for Data Directory")
+@click.option("-D", "--data-dir", type=str, default='C:\workspace\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train', required=True, help="Path for Data Directory")
 @click.option(
     "-M",
     "--model-name",
     type=str,
-    default='attentunet',
+    default='resunetplusplus',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
@@ -61,6 +63,11 @@ def main(
     """
     click.secho(message="🔎 Evaluation...", fg="blue")
 
+
+    """
+    Set Random Seed
+    Build Dataset & DataLoader
+    """
     set_seed(39)
     custom_transform = A.Compose([
         ToTensorV2(),
@@ -77,7 +84,9 @@ def main(
         sys.exit("Non-Existent Data Dir")
 
 
-    # Defining Model
+    """
+    Check GPU Availability & Set Model
+    """
     if model_name == 'unet':
         model = UNet(in_channel=INPUT_CHANNEL_NUM, num_classes=CLASSES)
         print("Model : U-Net")
@@ -97,14 +106,24 @@ def main(
         model = AttU_Net(in_channel=INPUT_CHANNEL_NUM, num_classes=CLASSES)
         print("Model : Attention U-Net")    
 
-
-    # Load Trained Model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     gpu_test()
     model.load_state_dict(torch.load(model_path))
     model.to(device)
     model.eval()
 
+
+    """
+    Logging(wandb) 
+    """
+    wandb.init(
+    project="aquaculture_segmentation",
+    resume=True,
+    config={
+        "test_model_path": model_path,
+        "test_data_dir": data_dir,
+    }
+)
     # Save test result
     test_base_dir = 'outputs/test_output'
     now = datetime.now()
@@ -118,7 +137,10 @@ def main(
         click.secho(message="\n❗ Error\n", fg="red")
         sys.exit("OSError while creating output data dir")
 
-    # Main loop
+
+    """
+    Test Loop 
+    """
     total_iou_test = 0.0
     total_pixel_accuracy_test = 0.0
     total_precision_test = 0.0
@@ -128,32 +150,31 @@ def main(
     with torch.no_grad():
         for i, (image, true_mask) in enumerate(test_dataloader):
             true_mask = true_mask.permute(0,3,1,2)
-
             image, true_mask = image.to(device), true_mask.to(device)
+            image, true_mask = image.float(), true_mask.float()
 
-            pred_mask = model(image)
-            if CLASSES != 1:  # # Multiclass Segmentation
-                pred_mask = F.softmax(pred_mask, dim=1)
-
-            # Calculating metrics for testing
+            pred_probs = model(image) 
             if CLASSES == 1:  # Binary Segmentation
-                pred_mask = pred_mask > 0.5
-            else:  # Multi-class Segmentation
-                pred_mask = torch.argmax(pred_mask, dim=1)
-
+                pred_probs = F.sigmoid(pred_probs)
+                pred_mask = pred_probs > 0.5  
+            elif CLASSES != 1:  # Multiclass Segmentation
+                pred_probs = F.softmax(pred_probs, dim=1)
+                pred_mask = torch.argmax(pred_probs, dim=1)
+                
             image = image[:, :, 16:-16, 16:-16]  # Unpad
+            pred_probs = pred_probs[:, :, 16:-16, 16:-16]  # Unpad
             pred_mask = pred_mask[:, :, 16:-16, 16:-16]  # Unpad
             true_mask = true_mask[:, :, 16:-16, 16:-16]  # Unpad
-
-            visualize(image, pred_mask, true_mask,
-                      img_save_path= test_output_dir, 
-                      epoch='none', iter='none', type='test', 
-                      num = i, is_binary = is_binary)
          
             iou_test, pixel_accuracy_test, precision_test, recall_test, f1_test = calculate_metrics(
                 pred_mask, true_mask, CLASSES
             )
 
+            visualize(image, pred_mask, true_mask,
+                     img_save_path= test_output_dir, 
+                      epoch='none', iteration='none', type='test', 
+                      num = i, is_binary = is_binary)
+            
             total_iou_test += iou_test
             total_pixel_accuracy_test += pixel_accuracy_test
             total_precision_test += precision_test
@@ -184,6 +205,18 @@ def main(
         f"Avg F1 Test: {avg_f1_test:.4f}\n"
         f"{'-'*50}"
         )
+
+
+    '''
+    Wandb logging
+    '''
+    wandb.log({
+        "test_iou": avg_iou_test.item(),
+        "test_pixel_accuracy": avg_pixel_accuracy_test,
+        "test_precision": avg_precision_test,
+        "test_recall": avg_recall_test,
+        "test_f1": avg_f1_test
+    })    
 
     click.secho(message="🎉 Test Done!", fg="blue")
 

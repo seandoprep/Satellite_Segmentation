@@ -12,6 +12,8 @@ from models.modules.resunetplusplus_modules import (
     Squeeze_Excite_Block,
 )
 
+from models.modules.FeatureFusionModule import SymmetricAttentionExtraction
+
 '''
 Model Code from https://github.com/rishikksh20/ResUnet
 '''
@@ -21,14 +23,27 @@ class ResUnetPlusPlus(nn.Module):
     def __init__(self, in_channel, num_classes : int = 1, filters=[32, 64, 128, 256, 512]):
         super(ResUnetPlusPlus, self).__init__()
 
-        self.input_layer = nn.Sequential(
-            nn.Conv2d(in_channel, filters[0], kernel_size=3, padding=1),
+        self.sar_input_layer = nn.Sequential(
+            nn.Conv2d(2, filters[0], kernel_size=3, padding=1),
             nn.BatchNorm2d(filters[0]),
             nn.ReLU(),
             nn.Conv2d(filters[0], filters[0], kernel_size=3, padding=1),
         )
-        self.input_skip = nn.Sequential(
-            nn.Conv2d(in_channel, filters[0], kernel_size=3, padding=1)
+
+        self.optic_input_layer = nn.Sequential(
+            nn.Conv2d(4, filters[0], kernel_size=3, padding=1),
+            nn.BatchNorm2d(filters[0]),
+            nn.ReLU(),
+            nn.Conv2d(filters[0], filters[0], kernel_size=3, padding=1),
+        )
+
+        self.ffm = SymmetricAttentionExtraction(in_channels=filters[0])
+        
+        self.conv_layer = nn.Sequential(
+            nn.Conv2d(filters[0], filters[0], kernel_size=3, padding=1),
+            nn.BatchNorm2d(filters[0]),
+            nn.ReLU(),
+            nn.Conv2d(filters[0], filters[0], kernel_size=3, padding=1),
         )
 
         self.squeeze_excite1 = Squeeze_Excite_Block(filters[0])
@@ -60,9 +75,17 @@ class ResUnetPlusPlus(nn.Module):
         self.aspp_out = ASPP(filters[1], filters[0])
 
         self.output_layer = nn.Sequential(nn.Conv2d(filters[0], num_classes, 1))
-
+    
     def forward(self, x):
-        x1 = self.input_layer(x) + self.input_skip(x)
+        
+        # Data Fusion
+        sar_x = self.sar_input_layer(x[:, :2, :, :])
+        optic_x = self.optic_input_layer(x[:, 2:, :, :])
+        fused_x = self.ffm(sar_x, optic_x)
+
+        # ResUNet++
+        #x1 = self.input_layer(x) + self.input_skip(x)
+        x1 = self.conv_layer(fused_x)
 
         x2 = self.squeeze_excite1(x1)
         x2 = self.residual_conv1(x2)

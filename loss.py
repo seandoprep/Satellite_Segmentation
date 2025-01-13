@@ -31,27 +31,37 @@ class DiceLoss(nn.Module):
         dice_loss = 1.0 - (2.0 * intersection + SMOOTH) / (total + SMOOTH)
         return dice_loss
     
+    
 class DiceBCELoss(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, dice_weight=0.3, bce_weight=0.7):
         super(DiceBCELoss, self).__init__()
+        self.dice_weight = dice_weight
+        self.bce_weight = bce_weight
+        self.smooth = 1e-6
 
-    def forward(self, pred_mask: Any, true_mask: Any) -> torch.Tensor:      
-        #flatten label and prediction tensors
-
-        pred_mask = F.sigmoid(pred_mask)
-
-        pred_mask = pred_mask.view(-1).float()
-        true_mask = true_mask.view(-1).float()
-
-        intersection = torch.sum(pred_mask * true_mask)
-        total = torch.sum(pred_mask) + torch.sum(true_mask)
-
-        intersection = torch.sum(pred_mask * true_mask)                            
-        dice_loss = 1.0 - (2.0 * intersection + SMOOTH) / (total + SMOOTH)
-        BCE = F.binary_cross_entropy(pred_mask, true_mask, reduction='mean')
-        Dice_BCE = BCE + dice_loss
+    def forward(self, pred_mask, true_mask):
+        # BCE Loss
+        bce = F.binary_cross_entropy_with_logits(pred_mask, true_mask, reduction='mean')
         
-        return Dice_BCE
+        # Dice Loss
+        pred_probs = F.sigmoid(pred_mask)  
+        pred_flat = pred_probs.view(pred_mask.size(0), -1)
+        true_flat = true_mask.view(true_mask.size(0), -1)
+        
+        intersection = (pred_flat * true_flat).sum(dim=1)
+        union = pred_flat.sum(dim=1) + true_flat.sum(dim=1)
+       
+        dice_score = torch.ones_like(intersection)
+        zero_masks = true_flat.sum(dim=1) == 0
+        non_zero_masks = ~zero_masks
+        
+        if non_zero_masks.any():
+            dice_score[non_zero_masks] = (2.0 * intersection[non_zero_masks] + self.smooth) / (
+                union[non_zero_masks] + self.smooth)
+            
+        dice_loss = 1.0 - dice_score.mean()
+        
+        return self.bce_weight * bce + self.dice_weight * dice_loss
     
 
 class IoULoss(nn.Module):
@@ -81,7 +91,7 @@ class FocalLoss(nn.Module):
     def __init__(self) -> None:
         super(FocalLoss, self).__init__()
 
-    def forward(self, pred_mask: Any, true_mask: Any, alpha=0.8, gamma=2):
+    def forward(self, pred_mask: Any, true_mask: Any, alpha=0.75, gamma=1.5):
         #flatten label and prediction tensors
 
         pred_mask = F.sigmoid(pred_mask)

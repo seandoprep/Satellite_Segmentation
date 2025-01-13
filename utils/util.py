@@ -10,12 +10,15 @@ import cv2
 import warnings
 import netCDF4 as nc
 import rasterio
+import torch.nn.functional as F
+from typing import Tuple
 warnings.filterwarnings('ignore')
 
 from glob import glob
 from PIL import Image
+from utils.metrics import calculate_metrics
 
-def pad_crop(original_array : np.ndarray, split_size : int):
+def pad_crop(original_array : np.ndarray, split_size : int, sampling : bool, indices : list):
     '''
     Pad and Crop Large Satellite Images for deep learning training.
     '''
@@ -42,7 +45,30 @@ def pad_crop(original_array : np.ndarray, split_size : int):
             cropped_image = padded_array[:, start_y:end_y, start_x:end_x]
             cropped_images.append(cropped_image)
 
-    return np.array(cropped_images)
+    sampling_indices = 0
+    
+    if sampling:
+        # Sampling for aquaculture data
+        sampling_indices = find_arrays_with_object(cropped_images)
+
+        # Add Non-aquaculture data for generalization performance
+        #cnt = 0
+        #for num in range(len(cropped_images)):   
+        #    cnt += 1 
+        #    if num in sampling_indices:
+        #        pass
+        #    else:
+        #        sampling_indices.append(num)    
+        #    if cnt == 100:
+        #        break
+        
+        cropped_images = [cropped_images[i] for i in sampling_indices]
+
+    if indices:
+        cropped_images = [cropped_images[i] for i in indices]
+        sampling_indices = indices
+
+    return np.array(cropped_images), sampling_indices
 
 
 def unpad(padded_array : np.ndarray, pad_length : int):
@@ -86,7 +112,6 @@ def replace_mean_pixel_value(band):
     '''
     Replace land pixel values into mean sea water pixel values
     '''
-
     # All values become positive
     band_abs = band - np.min(band)
     
@@ -106,47 +131,75 @@ def band_norm(band : np.array, norm_type : str, value_check : bool):
 
     Tips : 
     1) Negative values are changed to Positive values for deep learning training
-    2) norm_type should be one of linear_norm, dynamic_world_norm, or z_score_norm
+    2) norm_type should be one of linear_norm, dynamic_world_norm, robust_norm, hist_stretch or z_score_norm
     3) Modify boundary values as necessary
     4) This code is suited for Input Image which is already Land/Sea Masked(Land value : 0)
-     
+
     Reference : https://medium.com/sentinel-hub/how-to-normalize-satellite-images-for-deep-learning-d5b668c885af
     '''
     SMOOTH = 1e-5
     
+    # NULL value processing for S1
+    band[band == -9999] = 0
+    band[np.isnan(band)] = 0
+    band_abs = band.copy()
+
     if norm_type == 'linear_norm':
 
-        if np.any(band < 0):
-            band_abs = replace_mean_pixel_value(band)
-        else:
-            band_abs = band
-
-        input_band_lower_bound, input_band_upper_bound = np.percentile(band_abs[band_abs != -np.min(band)], 1), np.percentile(band_abs[band_abs != -np.min(band)], 99)
-        input_band_range = input_band_upper_bound - input_band_lower_bound
-
-        band_norm = (band_abs - input_band_lower_bound) / input_band_range  # Percentile Normalization
-        band_norm = np.clip((band_norm) / np.max(band_norm), 0, 1)  # Let Value Range : [0, 1]
+        valid_mask = band_abs != 0
+        valid_data = band_abs[valid_mask]
+        
+        if np.any(valid_data < 0):
+            valid_data = valid_data - np.mean(valid_data)
+            
+        p10, p90 = np.percentile(valid_data, [10, 90])
+        band_range = p90 - p10
+        
+        band_norm = np.zeros_like(band, dtype=float)
+        
+        band_norm[valid_mask] = (valid_data - p10) / band_range
+        band_norm = np.clip(band_norm, 0, 1)
 
     elif norm_type == 'dynamic_world_norm':
 
-        if np.any(band < 0):
-            band_abs = replace_mean_pixel_value(band)
-        else:
-            band_abs = band
-
-        def sigmoid(x):
-            return 1 / (1 + np.exp(-(x+SMOOTH)))
-
-        band_log = np.log1p(band_abs)
-        band_log_for_percentile = np.log1p(band_abs[band_abs != -np.min(band)])
-
-        input_band_lower_bound, input_band_upper_bound = np.percentile(band_log_for_percentile, 30), np.percentile(band_log_for_percentile, 70)  # Percentile Normalization
-        input_band_range = input_band_upper_bound - input_band_lower_bound
-
-        band_norm = sigmoid((band_log - input_band_lower_bound) / (input_band_range))  # Let Value Range : [0, 1] by Sigmoid Operation
+        valid_mask = band_abs != 0
+        
+        if not np.any(valid_mask):
+            if value_check:
+                print("Warning: No valid data found (all zeros)")
+            return np.zeros_like(band, dtype=float)
+            
+        valid_data = band_abs[valid_mask]
+        
+        valid_data = np.clip(valid_data, SMOOTH, None)
+        valid_data = np.log1p(valid_data)
+        
+        p30, p70 = np.percentile(valid_data, [30, 70])
+        
+        if np.abs(p70 - p30) < SMOOTH:
+            p70 = p30 + SMOOTH
+            
+        band_norm = np.zeros_like(band, dtype=float)
+        
+        normalized = -(valid_data - p30) / (p70 - p30 + SMOOTH)
+        band_norm[valid_mask] = 1 / (1 + np.exp(normalized))
+        band_norm = np.clip(band_norm, 0, 1)
+            
+    elif norm_type == 'robust_norm':
+            
+        median = np.median(band_abs[band_abs != 0])
+        mad = np.median(np.abs(band_abs[band_abs != 0] - median)) + SMOOTH
+                
+        band_norm = (band_abs - median) / mad
+        
+        p1, p99 = np.percentile(band_norm[band_abs != 0], [1, 99])
+        band_norm = np.clip(band_norm, p1, p99)
+        band_norm = (band_norm - p1) / (p99 - p1)
+        
+        band_norm[band_abs == 0] = 0
 
     elif norm_type == 'z_score_norm':
-        
+
         # Z-score Normalization
         band_mean = np.mean(band[band != 0])   
         band_std = np.std(band[band != 0])   
@@ -158,18 +211,14 @@ def band_norm(band : np.array, norm_type : str, value_check : bool):
         band_norm = (band_z_scores - min_z) / (max_z - min_z)
 
     elif norm_type == 'mask_norm':
-        band_norm = band_abs / 255.0
+        band_norm = (band_abs > 0).astype(np.float32)
 
     else:
-        raise Exception("norm_type should be one of 'linear_norm', 'dynamic_world_norm', 'z_score_norm'.")
+        raise Exception("norm_type should be one of 'linear_norm', 'dynamic_world_norm', 'robust_norm', 'z_score_norm'.")
 
     if value_check:
         print("Band Value :\n", band)
         print("Band Min Max :", np.min(band), np.max(band))
-        print("Band abs Value :\n", band_abs)
-        print("Band abs Min Max :", np.min(band_abs), np.max(band_abs))
-        print("Input Lower Bound :", input_band_lower_bound)
-        print("Input Upper Bound :", input_band_upper_bound)
         print("Band Norm Value :", band_norm)
         print("Band Norm Min Max :", np.min(band_norm), np.max(band_norm))
         print('--------------------------------------------------')
@@ -199,7 +248,6 @@ def get_data_info(file_path):
     return result
 
 
-
 def read_file(file_path, norm=True, norm_type='linear_norm'):
     '''
     Read ENVI, TIFF, TIF, NC file Format and return it as numpy array type.
@@ -221,9 +269,31 @@ def read_file(file_path, norm=True, norm_type='linear_norm'):
             envi_img_path = img_files_path[i]
             data = envi.open(envi_hdr_path, envi_img_path)
             img = np.array(data.load())[:,:,0]
+
+            #print(envi_hdr_path)
+            #if '2020_S1_VV.hdr' in envi_hdr_path :
+            #    img = np.clip(img, -20, -10)
+
+            #elif '2020_S1_VH.hdr' in envi_hdr_path :
+            #    img = np.clip(img, -30, -10)
+
+            #elif 'NDCI.hdr' in envi_hdr_path :
+            #    img = np.clip(img, -0.22, 0)
+
+            #elif 'NDWI.hdr' in envi_hdr_path :
+            #    img = np.clip(img, 0, 1)
+
+            #elif 'scaled_NIR.hdr' in envi_hdr_path :
+            #    img = np.clip(img, 0, 0.3)
+
+            #elif 'scaled_Red.hdr' in envi_hdr_path :
+            #    img = np.clip(img, 0, 0.3)
+            
+            #else:
+            #    print("No Available data")
+
             if norm:
                 img = band_norm(img, norm_type, False)
-                print(img.shape)
             data_array.append(img)
 
     # TIFF, TIF type 
@@ -254,30 +324,42 @@ def read_file(file_path, norm=True, norm_type='linear_norm'):
     else:
         raise ValueError(f"Unsupported file format: {ext}")
 
-    
-    
     return np.array(data_array)
 
 
-def remove_noise(binary_image, opening_kernel_size=(3, 3), closing_kernel_size=(3, 3), opening_iterations=1, closing_iterations=1):
-    '''
-    Find Target Object.
-
-    Input : Binarized array
-    Return : Binarized array with Morpological operations(Closing, Opening) 
-
-    Shape constant based denoising should be aquired
-    '''
-
-    # Define the structuring elements for morphological operations
+def remove_noise(
+    binary_image: np.ndarray,
+    opening_kernel_size: Tuple[int, int] = (3, 3),
+    closing_kernel_size: Tuple[int, int] = (3, 3),
+    opening_iterations: int = 1,
+    closing_iterations: int = 1
+) -> np.ndarray:
+    """
+    Remove noise from binary image using morphological operations.
+    Returns cleaned binary image.
+    """
+    # Validate input
+    if binary_image.dtype != np.uint8:
+        binary_image = binary_image.astype(np.uint8)
+    
+    # Create kernels
     opening_kernel = np.ones(opening_kernel_size, np.uint8)
     closing_kernel = np.ones(closing_kernel_size, np.uint8)
     
-    # Apply morphological closing operation
-    closing = cv2.morphologyEx(binary_image, cv2.MORPH_CLOSE, closing_kernel, iterations=closing_iterations)
+    # Apply morphological operations
+    closing = cv2.morphologyEx(
+        binary_image,
+        cv2.MORPH_CLOSE,
+        closing_kernel,
+        iterations=closing_iterations
+    )
     
-    # Apply morphological opening operation
-    opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, opening_kernel, iterations=opening_iterations)
+    opening = cv2.morphologyEx(
+        closing,
+        cv2.MORPH_OPEN,
+        opening_kernel,
+        iterations=opening_iterations
+    )
     
     return opening
 
@@ -289,9 +371,9 @@ def find_arrays_with_object(arrays_list):
     Input : Binarized numpy array(0 : no object, 1 : object exists)
     Return : Indices of pixel which has value 1
     '''
-    indices_with_one = [index for index, array in enumerate(arrays_list) if np.any(array > 0)]
+    indices_with_object = [index for index, array in enumerate(arrays_list) if np.any(array > 0)]
 
-    return indices_with_one
+    return indices_with_object
 
 
 def set_seed(random_seed : int):
@@ -336,25 +418,39 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-# def init_weights(net, init_type='normal', gain=0.02):
-#     def init_func(m):
-#         classname = m.__class__.__name__
-#         if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
-#             if init_type == 'normal':
-#                 init.normal_(m.weight.data, 0.0, gain)
-#             elif init_type == 'xavier':
-#                 init.xavier_normal_(m.weight.data, gain=gain)
-#             elif init_type == 'kaiming':
-#                 init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
-#             elif init_type == 'orthogonal':
-#                 init.orthogonal_(m.weight.data, gain=gain)
-#             else:
-#                 raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
-#             if hasattr(m, 'bias') and m.bias is not None:
-#                 init.constant_(m.bias.data, 0.0)
-#         elif classname.find('BatchNorm2d') != -1:
-#             init.normal_(m.weight.data, 1.0, gain)
-#             init.constant_(m.bias.data, 0.0)
+class LossDebugger:
+    '''
+    Debug model
+    '''
+    def __init__(self):
+        self.debug_info = {}
+    
+    def check_tensor(self, tensor, name=""):
+        if torch.is_tensor(tensor):
+            info = {
+                'isnan': torch.isnan(tensor).any().item(),
+                'isinf': torch.isinf(tensor).any().item(),
+                'min': tensor.min().item(),
+                'max': tensor.max().item(),
+                'mean': tensor.mean().item(),
+                'std': tensor.std().item() if tensor.numel() > 1 else 0
+            }
+            self.debug_info[name] = info
+            return info
+        return None
 
-#     print('initialize network with %s' % init_type)
-#     net.apply(init_func)
+    def check_grad(self, model, name=""):
+        grad_info = {}
+        for n, p in model.named_parameters():
+            if p.grad is not None:
+                grad_info[n] = {
+                    'grad_nan': torch.isnan(p.grad).any().item(),
+                    'grad_inf': torch.isinf(p.grad).any().item(),
+                    'grad_min': p.grad.min().item(),
+                    'grad_max': p.grad.max().item(),
+                    'grad_mean': p.grad.mean().item(),
+                    'weight_min': p.min().item(),
+                    'weight_max': p.max().item(),
+                }
+        self.debug_info[f"{name}_grad"] = grad_info
+        return grad_info

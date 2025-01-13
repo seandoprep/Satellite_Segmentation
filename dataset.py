@@ -22,34 +22,20 @@ class SatelliteDataset(Dataset):
             raise ValueError(f'Provided data_dir: "{data_dir}" does not exist.')
         
         self.data_dir = data_dir
-        self.image_dir = os.path.join(data_dir, "Image")
         self.mask_dir = os.path.join(data_dir, "Mask")
-        self.image_list = pad_crop(read_file(self.image_dir, True, 'z_score_norm'), 224)
-        self.mask_list = pad_crop(read_file(self.mask_dir, True, 'mask_norm'), 224)
+        self.image_dir = os.path.join(data_dir, "Image")
+        self.mask_list, self.sampling_indices = pad_crop(read_file(self.mask_dir, True, 'mask_norm'), 224, True, None)
+        self.image_list, _ = pad_crop(read_file(self.image_dir, True, 'linear_norm'), 224, False, self.sampling_indices)
         self.split = split
         self.val_ratio = val_ratio
         self.test_ratio = test_ratio
         self.transform = transform
-        
-        # Data sampling
-        #num_samples = len(self.image_list)
-        #indices = list(range(num_samples))
-        indices = find_arrays_with_object(self.mask_list)
-        
-        # Add Non-aquaculture data
-        # cnt = 0
-        # for num in range(len(self.image_list)):   
-        #     cnt += 1 
-        #     if num in indices:
-        #         pass
-        #     else:
-        #         indices.append(num)    
-        #     if cnt == 200:
-        #         break
 
-        num_samples = len(indices)
 
         # Data Split
+        num_samples = len(self.image_list)
+        indices = list(range(num_samples))
+
         np.random.shuffle(indices)
         num_val_samples = int(self.val_ratio * num_samples)
         num_test_samples = int(self.test_ratio * num_samples)
@@ -72,8 +58,10 @@ class SatelliteDataset(Dataset):
         img = self.image_list[img_idx]
         mask = self.mask_list[img_idx]
         
-        padded_img = np.pad(img, ((0,0),(16,16),(16,16)), 'constant', constant_values=0).swapaxes(0,2).swapaxes(0,1)
-        padded_mask = np.pad(mask, ((0,0),(16,16),(16,16)), 'constant', constant_values=0).swapaxes(0,2).swapaxes(0,1)
+        padded_img = np.pad(img, ((0,0),(16,16),(16,16)), 'constant', constant_values=0)
+        padded_img = np.transpose(padded_img, (2,1,0))
+        padded_mask = np.pad(mask, ((0,0),(16,16),(16,16)), 'constant', constant_values=0)
+        padded_mask = np.transpose(padded_mask, (2,1,0))
 
         if self.transform:
             augmentations = self.transform(image=padded_img, mask=padded_mask)
@@ -81,10 +69,11 @@ class SatelliteDataset(Dataset):
             processed_mask = augmentations["mask"]
 
         else:
-            processed_img = transforms.ToTensor(padded_img)
-            processed_mask = transforms.ToTensor(padded_mask)
+            processed_img = transforms.ToTensor()(padded_img)
+            processed_mask = transforms.ToTensor()(padded_mask)
 
         return processed_img, processed_mask
+
 
 class InferenceDataset(Dataset):
     def __init__(
@@ -98,11 +87,10 @@ class InferenceDataset(Dataset):
         self.data_dir = data_dir
         self.image_dir = os.path.join(data_dir, "Image")
         self.mask_dir = os.path.join(data_dir, "Mask")
-        self.image_list = pad_crop(read_file(self.image_dir, True, 'dynamic_world_norm'), 224)
-        self.mask_list = pad_crop(read_file(self.mask_dir, True, 'mask_norm'), 224)
+        self.image_list, _ = pad_crop(read_file(self.image_dir, True, 'linear_norm'), 224, False, None)
+        self.mask_list, _ = pad_crop(read_file(self.mask_dir, True, 'mask_norm'), 224, False, None)
         self.transform = transform
         self.indices = list(range(len(self.image_list)))
-        #self.indices = find_arrays_with_object(self.mask_list)
 
     def __len__(self) -> int:
         return len(self.indices)
@@ -112,15 +100,17 @@ class InferenceDataset(Dataset):
         img = self.image_list[img_idx]
         mask = self.mask_list[img_idx]
         
-        padded_img = np.pad(img, ((0,0),(16,16),(16,16)), 'constant', constant_values=0).swapaxes(0,2).swapaxes(0,1)
-        padded_mask = np.pad(mask, ((0,0),(16,16),(16,16)), 'constant', constant_values=0).swapaxes(0,2).swapaxes(0,1)
+        padded_img = np.pad(img, ((0,0),(16,16),(16,16)), 'constant', constant_values=0)
+        padded_img = np.transpose(padded_img, (2,1,0))
+        padded_mask = np.pad(mask, ((0,0),(16,16),(16,16)), 'constant', constant_values=0)
+        padded_mask = np.transpose(padded_mask, (2,1,0))
 
         if self.transform:
             augmentations = self.transform(image=padded_img, mask=padded_mask)
             processed_img = augmentations["image"]
             processed_mask = augmentations["mask"]
         else:
-            processed_img = transforms.ToTensor(padded_img)
-            processed_mask = transforms.ToTensor(padded_mask)
+            processed_img = transforms.ToTensor()(padded_img)
+            processed_mask = transforms.ToTensor()(padded_mask)
 
         return processed_img, processed_mask

@@ -1,5 +1,6 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
+os.environ['NO_ALBUMENTATIONS_UPDATE']='True'
 
 import sys
 import torch
@@ -21,7 +22,7 @@ from models.models.mdoaunet import MDOAU_net
 from models.models.u2net import U2NET
 from models.models.attent_unet import AttU_Net
 
-from dataset import InferenceDataset
+from dataset import SatelliteDataset, InferenceDataset
 from utils.util import set_seed, gpu_test, unpad, restore_img, remove_noise, read_file, get_data_info
 from utils.save_data import save_nc, label_binary_image, mask_to_hexagon, mask_to_shp
 from utils.visualize import compare_result
@@ -31,16 +32,16 @@ from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 
 # Data Info
-INPUT_CHANNEL_NUM = get_data_info("D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Image")
-CLASSES = get_data_info("D:\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Mask")
+INPUT_CHANNEL_NUM = get_data_info("C:\workspace\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Image")
+CLASSES = get_data_info("C:\workspace\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Mask")
 
 @click.command()
-@click.option("-D", "--data-dir", type=str, default='data\\Train', required=True, help="Path for Data Directory")
+@click.option("-D", "--data-dir", type=str, default="C:\workspace\KOREA_AQUACULTURE_DETECTION\dl_train_data\Inference\Image_2020_2021", required=True, help="Path for Data Directory")
 @click.option(
     "-M",
     "--model-name",
     type=str,
-    default='attentunet',
+    default='resunetplusplus',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
@@ -71,14 +72,19 @@ def main(
     """
     click.secho(message="🔎 Inference...", fg="blue")
 
-    set_seed(99)
+
+    """
+    Set Random Seed
+    Build Dataset & DataLoader
+    """
+    set_seed(39)
     custom_transform = A.Compose([
         ToTensorV2(),
     ])
 
     try:
         inference_dataset = InferenceDataset(data_dir=data_dir, transform=custom_transform)
-        inference_dataloader = DataLoader(inference_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
+        inference_dataloader = DataLoader(inference_dataset, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=False, persistent_workers=False)
         click.echo(message=f"\n{click.style('Inference Size: ', fg='blue')}{inference_dataset.__len__()}\n")
         inference_dataloader = tqdm(inference_dataloader, desc="Inference", unit="image")
     except Exception as _:
@@ -86,7 +92,10 @@ def main(
         click.secho(message=traceback.format_exc(), fg="yellow")
         sys.exit("Non-Existent Data Dir")
 
-    # Defining Model
+
+    """
+    Check GPU Availability & Set Model
+    """
     if model_name == 'unet':
         model = UNet(in_channel=INPUT_CHANNEL_NUM, num_classes=CLASSES)
         print("Model : U-Net")
@@ -106,14 +115,16 @@ def main(
         model = AttU_Net(in_channel=INPUT_CHANNEL_NUM, num_classes=CLASSES)
         print("Model : Attention U-Net")    
 
-    # Load Trained Model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     gpu_test()
     model.load_state_dict(torch.load(model_path))
     model.to(device)
     model.eval()
 
-    # Save test result
+
+    """
+    Logging 
+    """    
     inference_base_dir = 'outputs/inference_output'
     now = datetime.now()
     folder_name = now.strftime("%Y_%m_%d_%H_%M_%S") + model_name
@@ -126,7 +137,10 @@ def main(
         click.secho(message="\n❗ Error\n", fg="red")
         sys.exit("OSError while creating output data dir")
 
-    # Main loop
+
+    """
+    Inference Loop 
+    """
     image_list = []
     pad_length = 16
 
@@ -136,19 +150,24 @@ def main(
     with torch.no_grad():
         for i, (images, _) in enumerate(inference_dataloader):
             images = images.to(device)
+            images = images.float()
 
+            pred_probs = model(images)
             if CLASSES == 1:  # Binary Segmentation
-                pred_mask = model(images)
-                pred_mask = F.sigmoid(pred_mask[0].squeeze()) > 0.5
-            else:  # Multi-class Segmentation
-                outputs = F.softmax(outputs, dim=1)
-                pred_mask = torch.argmax(outputs, dim=1)    
+                pred_probs = F.sigmoid(pred_probs)
+                pred_mask = pred_probs > 0.5
+            elif CLASSES != 1:  # Multi-class Segmentation
+                pred_probs = F.softmax(pred_probs, dim=1)
+                pred_mask = torch.argmax(pred_probs, dim=1)    
 
             pred_mask_np = pred_mask.cpu().detach().numpy()
             pred_mask_np = unpad(pred_mask_np, pad_length)
             image_list.append(pred_mask_np)
 
-    # Restore Images  
+
+    """
+    Save Data
+    """
     click.secho(message="🔎 Restoring data...", fg="green")
     restored = restore_img(image_list, image_height, image_width, 224)
     restored_img = np.array(restored, np.uint8) 
@@ -170,7 +189,7 @@ def main(
 
     # Save into NC images
     click.secho(message="🔎 Save into .nc format data...", fg="green")
-    original_array_path = 'data\Train\original_nc\Final_Images_msk.nc'  # Need Original Data for adding coordinate information
+    original_array_path = "C:\workspace\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\original_nc\S1_VV.nc"  # Need Original Data for adding coordinate information
     nc_path = os.path.join(inference_output_dir, 'Inference_output.nc')
 
     fdata = nc.Dataset(original_array_path)
@@ -200,7 +219,7 @@ def main(
     prediction = Image.open(prediction_path)
     prediction_np = np.array(prediction)
     
-    true_mask_path = 'data\Train\Mask'
+    true_mask_path = "C:\workspace\KOREA_AQUACULTURE_DETECTION\dl_train_data\Train\Mask"
     true_mask_np = read_file(true_mask_path, None, None)
 
     result = compare_result(prediction_np, true_mask_np)

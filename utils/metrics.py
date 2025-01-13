@@ -21,25 +21,31 @@ def calculate_metrics(pred_mask: torch.Tensor, true_mask: torch.Tensor, classes:
     Returns:
     Tuple[torch.Tensor, float, float, float, float]: IoU, Pixel Accuracy, Precision, Recall, F1 score
     '''
-    eps = 1e-6
+    eps = 1e-4
+
+    # Add input validation
+    if torch.isnan(pred_mask).any():
+        raise ValueError("pred_mask contains NaN values")
+    if torch.isnan(true_mask).any():
+        raise ValueError("true_mask contains NaN values")
 
     if classes == 1:  # Binary segmentation
         pred_mask = pred_mask.contiguous().view(-1)
         true_mask = true_mask.contiguous().view(-1)
 
-        TP = (pred_mask * true_mask).sum()
+        TP = ((pred_mask == 1) & (true_mask == 1)).sum()
         FP = ((pred_mask == 1) & (true_mask == 0)).sum()
         FN = ((pred_mask == 0) & (true_mask == 1)).sum()
         TN = ((pred_mask == 0) & (true_mask == 0)).sum()
-
-        pixel_accuracy = (TP + TN) / (TP + TN + FP + FN)
+        
+        pixel_accuracy = (TP + TN) / (TP + FP + FN + TN + eps)
         iou = (TP + eps) / (TP + FP + FN + eps)
         precision = (TP + eps) / (TP + FP + eps)
         recall = (TP + eps) / (TP + FN + eps)
-        f1 = 2 * (precision * recall) / (precision + recall + eps)
+        f1 = 2 * precision * recall / (precision + recall + eps)
 
     else:  # Multi-class segmentation
-        pred_mask = pred_mask.contiguous().view(-1)
+        pred_mask = pred_mask.argmax(dim=1).contiguous().view(-1)
         true_mask = true_mask.argmax(dim=1).contiguous().view(-1)
 
         pixel_accuracy_list = []
@@ -48,17 +54,17 @@ def calculate_metrics(pred_mask: torch.Tensor, true_mask: torch.Tensor, classes:
         recall_list = []
         f1_list = []
 
-        for class_id in range(classes+1):
+        for class_id in range(classes):  
             TP = ((pred_mask == class_id) & (true_mask == class_id)).sum()
             FP = ((pred_mask == class_id) & (true_mask != class_id)).sum()
             FN = ((pred_mask != class_id) & (true_mask == class_id)).sum()
             TN = ((pred_mask != class_id) & (true_mask != class_id)).sum()
-            
-            pixel_accuracy = (TP + TN) / (TP + TN + FP + FN)
+
+            pixel_accuracy = (TP + TN) / (TP + FP + FN + TN + eps)
             iou = (TP + eps) / (TP + FP + FN + eps)
             precision = (TP + eps) / (TP + FP + eps)
             recall = (TP + eps) / (TP + FN + eps)
-            f1 = 2 * (precision * recall) / (precision + recall + eps)
+            f1 = 2 * precision * recall / (precision + recall + eps)
 
             pixel_accuracy_list.append(pixel_accuracy)
             iou_list.append(iou)

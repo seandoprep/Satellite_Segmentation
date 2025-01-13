@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 """
 Model Code from https://github.com/LeeJunHyun/Image_Segmentation
 """
@@ -119,10 +120,23 @@ class Attention_block(nn.Module):
 class AttU_Net(nn.Module):
     def __init__(self, in_channel: int = 3, num_classes: int = 1):
         super(AttU_Net,self).__init__()
-        
+
+        # Feature Fusion Module
+        self.fusion_module = FeatureFusionModule(
+            feat_channels=in_channel,
+            reduction_ratio=16
+        )
+
+        # Transition layer to match AttU_Net input channels
+        self.transition = nn.Sequential(
+            nn.Conv2d(in_channel, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True)
+        )
+
         self.Maxpool = nn.MaxPool2d(kernel_size=2,stride=2)
 
-        self.Conv1 = conv_block(ch_in=in_channel,ch_out=64)
+        self.Conv1 = conv_block(ch_in=64,ch_out=64)
         self.Conv2 = conv_block(ch_in=64,ch_out=128)
         self.Conv3 = conv_block(ch_in=128,ch_out=256)
         self.Conv4 = conv_block(ch_in=256,ch_out=512)
@@ -148,8 +162,12 @@ class AttU_Net(nn.Module):
 
 
     def forward(self,x):
+
+        fused_features, _ = self.fusion_module(x)
+        input = self.transition(fused_features)
+
         # encoding path
-        x1 = self.Conv1(x)
+        x1 = self.Conv1(input)
 
         x2 = self.Maxpool(x1)
         x2 = self.Conv2(x2)

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from models.modules.FeatureFusionModule import WeightedSymmetricAttentionExtraction
 
 """
 Model Code from https://github.com/LeeJunHyun/Image_Segmentation
@@ -25,6 +26,7 @@ class conv_block(nn.Module):
         x = self.conv(x)
         return x
 
+
 class up_conv(nn.Module):
     def __init__(self,ch_in,ch_out):
         super(up_conv,self).__init__()
@@ -38,6 +40,7 @@ class up_conv(nn.Module):
     def forward(self,x):
         x = self.up(x)
         return x
+
 
 class Recurrent_block(nn.Module):
     def __init__(self,ch_out,t=2):
@@ -58,7 +61,8 @@ class Recurrent_block(nn.Module):
             
             x1 = self.conv(x+x1)
         return x1
-        
+
+
 class RRCNN_block(nn.Module):
     def __init__(self,ch_in,ch_out,t=2):
         super(RRCNN_block,self).__init__()
@@ -86,6 +90,7 @@ class single_conv(nn.Module):
     def forward(self,x):
         x = self.conv(x)
         return x
+
 
 class Attention_block(nn.Module):
     def __init__(self,F_g,F_l,F_int):
@@ -118,18 +123,30 @@ class Attention_block(nn.Module):
 
 
 class AttU_Net(nn.Module):
-    def __init__(self, in_channel: int = 3, num_classes: int = 1):
+    def __init__(self, in_channel, num_classes: int = 1):
         super(AttU_Net,self).__init__()
-
+        
         # Feature Fusion Module
-        self.fusion_module = FeatureFusionModule(
-            feat_channels=in_channel,
-            reduction_ratio=16
+        self.fusion_module = WeightedSymmetricAttentionExtraction(
+            in_channels=32  
         )
 
-        # Transition layer to match AttU_Net input channels
+        # Initial processing for each satellite input
+        self.s1_init = nn.Sequential(
+            nn.Conv2d(2, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True)
+        )
+        
+        self.s2_init = nn.Sequential(
+            nn.Conv2d(4, 32, kernel_size=3, padding=1),  
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True)
+        )
+
+        # Transition layer after fusion
         self.transition = nn.Sequential(
-            nn.Conv2d(in_channel, 64, kernel_size=3, padding=1),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True)
         )
@@ -160,14 +177,24 @@ class AttU_Net(nn.Module):
 
         self.Conv_1x1 = nn.Conv2d(64,num_classes,kernel_size=1,stride=1,padding=0)
 
+    def get_fusion_weights(self):
+        """Returns the learned weights for each satellite"""
+        return self.fusion_module.get_satellite_weights()
 
-    def forward(self,x):
+    def forward(self, x):
+        
+        # Data Fusion
+        s1_features = self.s1_init(x[:, :2, :, :])
+        s2_features = self.s2_init(x[:, 2:, :, :])
 
-        fused_features, _ = self.fusion_module(x)
-        input = self.transition(fused_features)
+        # Feature fusion
+        fused_features = self.fusion_module(s1_features, s2_features)
+        
+        # Transition to encoder
+        x = self.transition(fused_features)
 
-        # encoding path
-        x1 = self.Conv1(input)
+        # Encoding path
+        x1 = self.Conv1(x)
 
         x2 = self.Maxpool(x1)
         x2 = self.Conv2(x2)
@@ -181,7 +208,7 @@ class AttU_Net(nn.Module):
         x5 = self.Maxpool(x4)
         x5 = self.Conv5(x5)
 
-        # decoding + concat path
+        # Decoding path
         d5 = self.Up5(x5)
         x4 = self.Att5(g=d5,x=x4)
         d5 = torch.cat((x4,d5),dim=1)        

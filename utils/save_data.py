@@ -8,11 +8,9 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import matplotlib
 
-from collections import defaultdict
 from shapely import LineString
-from shapely.geometry import Polygon, MultiPolygon, mapping
+from shapely.geometry import Polygon, mapping
 from netCDF4 import Dataset
-from fiona.crs import from_epsg
 
 
 def save_nc(save_path : str, prediction_array : np.array, lat_grid : np.array, lon_grid : np.array) :

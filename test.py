@@ -21,7 +21,7 @@ from models.models.u2net import U2NET
 from models.models.attent_unet import AttU_Net
 
 from dataset import SatelliteDataset
-from utils.util import set_seed, gpu_test, get_data_info
+from utils.util import set_seed, gpu_test, get_data_info, unpad
 from utils.metrics import calculate_metrics
 from utils.visualize import visualize
 from datetime import datetime
@@ -160,7 +160,7 @@ def main(
             elif CLASSES != 1:  # Multiclass Segmentation
                 pred_probs = F.softmax(pred_probs, dim=1)
                 pred_mask = torch.argmax(pred_probs, dim=1)
-                
+            
             image = image[:, :, 16:-16, 16:-16]  # Unpad
             pred_probs = pred_probs[:, :, 16:-16, 16:-16]  # Unpad
             pred_mask = pred_mask[:, :, 16:-16, 16:-16]  # Unpad

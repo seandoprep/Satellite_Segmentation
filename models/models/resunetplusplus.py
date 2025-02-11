@@ -12,7 +12,7 @@ from models.modules.resunetplusplus_modules import (
     Squeeze_Excite_Block,
 )
 
-from models.modules.FeatureFusionModule import SymmetricAttentionExtraction
+from models.modules.FeatureFusionModule import WeightedSymmetricAttentionExtraction
 
 '''
 Model Code from https://github.com/rishikksh20/ResUnet
@@ -26,6 +26,7 @@ class ResUnetPlusPlus(nn.Module):
         self.sar_input_layer = nn.Sequential(
             nn.Conv2d(2, filters[0], kernel_size=3, padding=1),
             nn.BatchNorm2d(filters[0]),
+            nn.Dropout(0.5),
             nn.ReLU(),
             nn.Conv2d(filters[0], filters[0], kernel_size=3, padding=1),
         )
@@ -33,11 +34,12 @@ class ResUnetPlusPlus(nn.Module):
         self.optic_input_layer = nn.Sequential(
             nn.Conv2d(4, filters[0], kernel_size=3, padding=1),
             nn.BatchNorm2d(filters[0]),
+            nn.Dropout(0.5),
             nn.ReLU(),
             nn.Conv2d(filters[0], filters[0], kernel_size=3, padding=1),
         )
 
-        self.ffm = SymmetricAttentionExtraction(in_channels=filters[0])
+        self.ffm = WeightedSymmetricAttentionExtraction(in_channels=filters[0])
         
         self.conv_layer = nn.Sequential(
             nn.Conv2d(filters[0], filters[0], kernel_size=3, padding=1),

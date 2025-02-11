@@ -39,9 +39,10 @@ def visualize(
         num (int): Unique identifier for the visualization.
         is_binary (bool, optional): Whether it's a binary segmentation problem. Defaults to False.
     """
-    original_img = original_img.cpu()[0]
-    pred_mask = pred_mask.detach().cpu()[0]
-    true_mask = true_mask.detach().cpu()[0]
+
+    original_img = original_img.cpu()
+    pred_mask = pred_mask.detach().cpu()
+    true_mask = true_mask.detach().cpu()
 
     plt.figure(figsize=(12, 12))
 
@@ -50,10 +51,9 @@ def visualize(
     cols = 4
 
     for i in range(num_channels):
-
         # Plot original image
         plt.subplot(rows, cols, i + 1)
-        plt.imshow(original_img[i], cmap='gray')
+        plt.imshow(original_img[0,i], cmap='gray')
         plt.title(f'Band {i + 1}')
         plt.axis("off")
 
@@ -80,91 +80,13 @@ def visualize(
     # Save the visualization
     if type == 'train':
         filename = f'Training_result_epoch_{epoch}_iter_{iteration}.png'
-    else:
+    elif type == 'test':
         filename = f'Test_result_{num}.png'
+    else:
+        filename = f'Inference_result_{num}.png'
 
     plt.tight_layout()
     plt.savefig(os.path.join(img_save_path, filename))
-    plt.close()
-
-
-def visualize_training_log(training_logs_csv: str, img_save_path: str):
-    '''
-    Visualize training log and Save it.
-    '''
-    training_log = pd.read_csv(training_logs_csv)
-    epochs = training_log['Epoch']
-    loss_train = training_log['Avg Train Loss']
-    loss_val = training_log['Avg Val Loss']
-    IoU_train = training_log['Avg IoU Train']
-    IoU_val = training_log['Avg IoU Val']
-    pixacc_train = training_log['Avg Pix Acc Train']
-    pixacc_val = training_log['Avg Pix Acc Val']
-    precision_train = training_log['Avg Precision Train']
-    precision_val = training_log['Avg Precision Val']
-    recall_train = training_log['Avg Recall Train']
-    recall_val = training_log['Avg Recall Val']
-    f1_train = training_log['Avg F1 Train']
-    f1_val = training_log['Avg F1 Val']
-
-    plt.figure(figsize=(28,16))
-
-    # Loss
-    plt.subplot(2, 3, 1)
-    plt.plot(epochs, loss_train)
-    plt.plot(epochs, loss_val)
-    plt.title('Train/Val Loss')
-    plt.xlabel('epochs')
-    plt.ylabel('Loss')
-    plt.legend(('val', 'train'))
-
-    # IoU
-    plt.subplot(2, 3, 2)
-    plt.plot(epochs, IoU_train)
-    plt.plot(epochs, IoU_val)
-    plt.title('Train/Val IoU')
-    plt.xlabel('epochs')
-    plt.ylabel('IoU')
-    plt.legend(('val', 'train'))
-
-    # Pixel accuracy
-    plt.subplot(2, 3, 3)
-    plt.plot(epochs, pixacc_train)
-    plt.plot(epochs, pixacc_val)
-    plt.title('Train/Val pixacc')
-    plt.xlabel('epochs')
-    plt.ylabel('pixacc')
-    plt.legend(('val', 'train'))
-
-    # Precision
-    plt.subplot(2, 3, 4)
-    plt.plot(epochs, precision_train)
-    plt.plot(epochs, precision_val)
-    plt.title('Train/Val precision')
-    plt.xlabel('epochs')
-    plt.ylabel('precision')
-    plt.legend(('val', 'train'))
-
-    # Recall
-    plt.subplot(2, 3, 5)
-    plt.plot(epochs, recall_train)
-    plt.plot(epochs, recall_val)
-    plt.title('Train/Val recall')
-    plt.xlabel('epochs')
-    plt.ylabel('recall')
-    plt.legend(('val', 'train'))
-
-    # f1 score
-    plt.subplot(2, 3, 6)
-    plt.plot(epochs, f1_train)
-    plt.plot(epochs, f1_val)
-    plt.title('Train/Val F1')
-    plt.xlabel('epochs')
-    plt.ylabel('f1')
-    plt.legend(('val', 'train'))
-
-
-    plt.savefig(os.path.join(img_save_path, 'Training_log.png'))
     plt.close()
 
 

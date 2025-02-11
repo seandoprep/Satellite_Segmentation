@@ -5,7 +5,8 @@ import torch
 import warnings
 
 warnings.filterwarnings('ignore')
-from typing import Any, Tuple
+from typing import Tuple
+
 
 def calculate_metrics(pred_mask: torch.Tensor, true_mask: torch.Tensor, classes: int) -> Tuple[torch.Tensor, float, float, float, float]:
     '''

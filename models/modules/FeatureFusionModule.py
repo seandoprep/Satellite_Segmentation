@@ -4,9 +4,13 @@ import torch.nn.functional as F
 import numpy as np
 
 
-class SymmetricAttentionExtraction(nn.Module):
+class WeightedSymmetricAttentionExtraction(nn.Module):
     def __init__(self, in_channels):
-        super(SymmetricAttentionExtraction, self).__init__()
+        super(WeightedSymmetricAttentionExtraction, self).__init__()
+        
+        # Learnable weights for each satellite
+        self.s1_weight = nn.Parameter(torch.ones(1))  # Sentinel-1 weight
+        self.s2_weight = nn.Parameter(torch.ones(1))  # Sentinel-2 weight
         
         # Initial convolution layers for feature extraction
         self.conv_f_m1 = nn.Conv2d(in_channels, in_channels, kernel_size=3, padding=1)
@@ -27,10 +31,27 @@ class SymmetricAttentionExtraction(nn.Module):
         
         self.sigmoid = nn.Sigmoid()
         self.relu = nn.ReLU(inplace=True)
+        self.softmax = nn.Softmax(dim=0)  # For normalizing weights
+
+    def get_satellite_weights(self):
+        # Returns normalized weights for interpretation
+        weights = torch.stack([self.s1_weight, self.s2_weight])
+        normalized_weights = self.softmax(weights)
+        return {
+            'sentinel1_weight': normalized_weights[0].item(),
+            'sentinel2_weight': normalized_weights[1].item()
+        }
 
     def forward(self, f_m1, f_m2):
-        # Initial concatenation
-        concat_features = torch.cat([f_m1, f_m2], dim=1)
+        # Apply learned weights to input features
+        weights = torch.stack([self.s1_weight, self.s2_weight])
+        normalized_weights = self.softmax(weights)
+        
+        weighted_f_m1 = f_m1 * normalized_weights[0]
+        weighted_f_m2 = f_m2 * normalized_weights[1]
+        
+        # Initial concatenation with weighted features
+        concat_features = torch.cat([weighted_f_m1, weighted_f_m2], dim=1)
         f_theta = self.conv_f_theta(concat_features)
         
         # Strip pooling
@@ -51,16 +72,10 @@ class SymmetricAttentionExtraction(nn.Module):
         w_max = F.adaptive_max_pool2d(f_theta, (1, w))
         w_max = w_max.expand(-1, -1, h, -1)
         
-        # Expansion path 1 (avg + h pool)
+        # Expansion paths
         f_s1 = self.expand_conv1(h_pool)
-        
-        # Expansion path 2 (avg + w pool)
         f_s2 = self.expand_conv2(w_pool)
-        
-        # Expansion path 3 (max + h pool)
         f_s3 = self.expand_conv3(h_max)
-        
-        # Expansion path 4 (max + w pool)
         f_s4 = self.expand_conv4(w_max)
         
         # Combine expanded features
@@ -92,7 +107,7 @@ if __name__ == "__main__":
     f_m2 = torch.randn(batch_size, channels, height, width)
     
     # Initialize the module
-    attention_module = SymmetricAttentionExtraction(channels)
+    attention_module = WeightedSymmetricAttentionExtraction(channels)
     
     # Forward pass
     output = attention_module(f_m1, f_m2)

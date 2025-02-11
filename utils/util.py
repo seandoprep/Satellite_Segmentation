@@ -2,7 +2,6 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 import torch
-from torch.nn import init
 import numpy as np
 import random
 import spectral.io.envi as envi
@@ -10,65 +9,154 @@ import cv2
 import warnings
 import netCDF4 as nc
 import rasterio
-import torch.nn.functional as F
-from typing import Tuple
+import tifffile
+
+from typing import Optional, Tuple, Union, List, Generator
 warnings.filterwarnings('ignore')
-
 from glob import glob
-from PIL import Image
-from utils.metrics import calculate_metrics
+from pathlib import Path
 
-def pad_crop(original_array : np.ndarray, split_size : int, sampling : bool, indices : list):
-    '''
-    Pad and Crop Large Satellite Images for deep learning training.
-    '''
-    _, original_height, original_width = original_array.shape
 
-    # Padding 
-    X_num = original_width // split_size + 1
-    Y_num = original_height // split_size + 1
+def crop_img(
+    data_array: np.ndarray,
+    split_size: int,
+    Y_num: int,
+    X_num: int,
+    hist_equal: bool,
+) -> List[np.ndarray]:
+    """
+    Generate Cropped Images.
+    """
+    result = []
 
-    pad_x = (split_size * (X_num)) - original_width
-    pad_y = (split_size * (Y_num)) - original_height
-
-    padded_array = np.pad(original_array, ((0,0),(0,pad_y),(0,pad_x)), 'constant', constant_values=0)
-
-    # Cropping
-    cropped_images = []
     for i in range(Y_num):
         for j in range(X_num):
             start_y = i * split_size
             start_x = j * split_size
             end_y = start_y + split_size
             end_x = start_x + split_size
+            
+            cropped_image = data_array[:, start_y:end_y, start_x:end_x]
+            
+            if hist_equal:
+                cropped_image = histogram_equalization(cropped_image)
 
-            cropped_image = padded_array[:, start_y:end_y, start_x:end_x]
-            cropped_images.append(cropped_image)
+            result.append(cropped_image)
 
-    sampling_indices = 0
+    return np.array(result, dtype=np.float32)
+
+
+def process_satellite_data(
+    data_dir: Union[str, Path],
+    split_size: Optional[int] = 224,
+    sampling: bool = False,
+    indices: Optional[List] = None,
+    negative_sampling_num: int = 0,
+    hist_equal: bool = True,
+    norm: bool = True,
+    norm_type: str = 'linear_norm',
+    value_check: bool = False,
+    save_cropped_data: bool = False,
+) -> List[np.ndarray]:
+    """
+    Process satellite data by reading files and optionally performing padding and cropping.
     
+    Args:
+        data_dir: Directory containing satellite data files
+        split_size: Size for splitting large images. If None, assumes pre-cropped data
+        sampling: Whether to perform sampling on cropped images
+        indices: Indices for sampling.
+        negative_sampling_num: Number of hard negative samples. If None, skip hard negative sampling
+        hist_equal: Whether to perform histogram equalization
+        norm: Whether to normalize the data
+        norm_type: Type of normalization ('linear_norm', 'dynamic_world_norm', etc.)
+        value_check: Whether to print value checking information
+        save_cropped_data: Whether to save processed data
+
+    Returns:
+        Numpy array of (processed image array, sampling indices if sampling=True else None)
+    """
+    # Read the file data
+    data_array = read_file(data_dir, norm=norm, norm_type=norm_type)
+    print(f"Data array got shape {data_array.shape}")
+
+    # If split_size is not provided, return data array directly
+    if split_size is None:
+        if norm and value_check:
+            print(f"Data shape: {data_array.shape}")
+            print(f"Data range: [{np.min(data_array)}, {np.max(data_array)}]")
+        return data_array, None
+    
+    # Calculate padding dimensions for original img
+    _, original_height, original_width = data_array.shape
+    X_num = (original_width + split_size - 1) // split_size
+    Y_num = (original_height + split_size - 1) // split_size
+    
+    pad_x = (X_num * split_size) - original_width
+    pad_y = (Y_num * split_size) - original_height
+    
+    # Pad the array
+    padded_array = np.pad(data_array, ((0,0), (0,pad_y), (0,pad_x)), 
+                         'constant', constant_values=0)
+    
+    print(f"Padded imgs got shape {padded_array.shape}")
+
+    # Set save directory
+    dir_name = 'img' if padded_array.shape[0] != 1 else 'msk'
+    save_dir = os.path.join(data_dir, "processed_images/{}".format(dir_name)) if save_cropped_data else None
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+    
+    # Crop into smaller images
+    processed_images = None
+    processed_images = crop_img(padded_array, split_size, Y_num, X_num, hist_equal)
+    print(f"Cropped imgs got shape {processed_images.shape}")
+
+    # Get only-object samples if required
+    sampling_indices = None
     if sampling:
-        # Sampling for aquaculture data
-        sampling_indices = find_arrays_with_object(cropped_images)
+        if indices:
+            sampling_indices = indices
+            processed_images = np.array([processed_images[i] for i in sampling_indices])
+            print(f"Sampled imgs got shape {processed_images.shape}")
 
-        # Add Non-aquaculture data for generalization performance
-        #cnt = 0
-        #for num in range(len(cropped_images)):   
-        #    cnt += 1 
-        #    if num in sampling_indices:
-        #        pass
-        #    else:
-        #        sampling_indices.append(num)    
-        #    if cnt == 100:
-        #        break
+            if save_cropped_data and save_dir and os.listdir(save_dir) == []:
+                for index, img in enumerate(processed_images):
+                    tifffile.imwrite(os.path.join(save_dir, f'{dir_name}_{index+1}.tiff'), img)
+
+            return processed_images, sampling_indices
+        else:
+            sampling_indices = find_arrays_with_object(processed_images)
         
-        cropped_images = [cropped_images[i] for i in sampling_indices]
+        # Hard Negative Sampling for improving generalization performance if required
+        if negative_sampling_num:
+            sampling_count = 0
+            all_indices = list(range(len(processed_images)))
+            np.random.shuffle(all_indices)
+            
+            for idx in all_indices:
+                if sampling_count >= negative_sampling_num:
+                    break
+                if idx not in sampling_indices:
+                    sampling_indices.append(idx)
+                    sampling_count += 1
+            
+            sampling_indices.sort()
+            
+            if value_check:
+                print(f"Added {sampling_count} hard negative samples")
+                print(f"Total samples: {len(sampling_indices)}")
+        
+        processed_images = np.array([processed_images[i] for i in sampling_indices])
+        print(f"Sampled imgs got shape {processed_images.shape}")
 
-    if indices:
-        cropped_images = [cropped_images[i] for i in indices]
-        sampling_indices = indices
+        if save_cropped_data and save_dir and os.listdir(save_dir) == []:
+            for index, img in enumerate(processed_images):
+                tifffile.imwrite(os.path.join(save_dir, f'{dir_name}_{index+1}.tiff'), img)
 
-    return np.array(cropped_images), sampling_indices
+        return processed_images, sampling_indices
+    
+    return processed_images, sampling_indices
 
 
 def unpad(padded_array : np.ndarray, pad_length : int):
@@ -76,8 +164,8 @@ def unpad(padded_array : np.ndarray, pad_length : int):
     Unpad 2d padded image
     '''
     # Unpadding
-    height, width = padded_array.shape
-    unpadded_array = padded_array[pad_length:height-pad_length, pad_length:width-pad_length]
+    _, _, height, width = padded_array.shape
+    unpadded_array = padded_array[0, 0, pad_length:height-pad_length, pad_length:width-pad_length]
 
     return unpadded_array
 
@@ -87,11 +175,11 @@ def restore_img(image_list : list, original_height : int, original_width : int, 
     Restore Image by stitching cropped images
     '''
     # Calculate image number per row and column
-    X_num = original_width // split_size + 1
-    Y_num = original_height // split_size + 1
-
-    pad_x = (split_size * (X_num)) - original_width
-    pad_y = (split_size * (Y_num)) - original_height
+    X_num = (original_width + split_size - 1) // split_size
+    Y_num = (original_height + split_size - 1) // split_size
+    
+    pad_x = (X_num * split_size) - original_width
+    pad_y = (Y_num * split_size) - original_height
 
     zero_array = np.zeros((original_height+pad_y, original_width+pad_x))
 
@@ -106,20 +194,6 @@ def restore_img(image_list : list, original_height : int, original_width : int, 
     restored_img = zero_array[:-pad_y, :-pad_x]
 
     return restored_img
-
-
-def replace_mean_pixel_value(band):
-    '''
-    Replace land pixel values into mean sea water pixel values
-    '''
-    # All values become positive
-    band_abs = band - np.min(band)
-    
-    # Replace land pixel values into sea water mean pixel values
-    band_mean = np.mean(band_abs[band_abs != -np.min(band)])   
-    band_abs[band_abs == -np.min(band)] = band_mean
-
-    return band_abs
 
 
 def band_norm(band : np.array, norm_type : str, value_check : bool):
@@ -210,6 +284,7 @@ def band_norm(band : np.array, norm_type : str, value_check : bool):
         max_z = np.max(band_z_scores)
         band_norm = (band_z_scores - min_z) / (max_z - min_z)
 
+
     elif norm_type == 'mask_norm':
         band_norm = (band_abs > 0).astype(np.float32)
 
@@ -248,83 +323,173 @@ def get_data_info(file_path):
     return result
 
 
+def read_envi(file_path):
+    '''
+    Read ENVI type format data
+    '''
+    result = []
+    # ENVI type 
+    hdr_files_path = sorted(glob(os.path.join(file_path, "*.hdr")))
+    img_files_path = sorted(glob(os.path.join(file_path, "*.img")))
+    band_nums = len(hdr_files_path)
+    if not hdr_files_path:
+        raise ValueError(f"No ENVI files found in {file_path}")
+    try:
+        for i in range(band_nums):
+            envi_hdr_path = hdr_files_path[i]
+            envi_img_path = img_files_path[i]
+            data = envi.open(envi_hdr_path, envi_img_path)
+            band_data = np.array(data.load())
+            if len(band_data.shape) == 3:
+                band_data = band_data[:,:,0]
+            result.append(band_data)
+
+    except Exception as e:
+        raise Exception(f"Error processing ENVI file: {str(e)}")
+    
+    return result
+
+
+def read_tif(file_path):
+    '''
+    Read tif/tiff type format data
+    '''
+    # TIFF, TIF type 
+    tiffs_file_path = sorted(glob(os.path.join(file_path, "*.tif")) + 
+                                glob(os.path.join(file_path, "*.tiff")))
+    if not tiffs_file_path:
+        raise ValueError(f"No TIFF files found in {file_path}")
+
+    file_num = len(tiffs_file_path)
+    result = []
+
+    try:
+        for path in tiffs_file_path:
+            with rasterio.open(path) as src:
+                band_count = src.count  
+                for band in range(1, band_count + 1):
+                    img = src.read(band)
+                    if file_num == 1:
+                        result = img
+                        return result
+                    else:
+                        result.append(img)
+    except Exception as e:
+        raise Exception(f"Error processing TIFF file: {str(e)}")
+    
+    return file_num, result
+
+
+def read_nc(file_path):
+    '''
+    Read NC type format data
+    '''
+    # NetCDF type
+    nc_file_path = sorted(glob(os.path.join(file_path, "*.nc")))
+    if not nc_file_path:
+        raise ValueError(f"No NC files found in {file_path}")
+    
+    file_num = len(nc_file_path)
+    result = []
+
+    try:
+        for path in nc_file_path:
+            img = []
+            ds = nc.Dataset(path)
+            band_names = list(ds.variables.keys())[1:-3]
+            for i in range(len(band_names)):
+                band_name = str(band_names[i])
+                band = ds[band_name][:]
+                img.append(band)
+            ds.close()
+            if file_num == 1:
+                result = img
+                return result
+            else:
+                result.append(img)
+
+    except Exception as e:
+        raise Exception(f"Error processing NC file: {str(e)}")
+    
+    return result
+
 def read_file(file_path, norm=True, norm_type='linear_norm'):
     '''
     Read ENVI, TIFF, TIF, NC file Format and return it as numpy array type.
 
     Input : Directory where satellite data exists.
-    Return : Numpy array of stacked satellite data.
+    Return : Numpy array type satellite data.
     '''
     data_array = []
     ext = get_files(file_path)
 
     # ENVI type 
     if any(e in ['.hdr', '.img'] for e in ext):
-        hdr_files_path = sorted(glob(os.path.join(file_path, "*.hdr")))
-        img_files_path = sorted(glob(os.path.join(file_path, "*.img")))
-        band_nums = len(hdr_files_path)
-
-        for i in range(band_nums):
-            envi_hdr_path = hdr_files_path[i]
-            envi_img_path = img_files_path[i]
-            data = envi.open(envi_hdr_path, envi_img_path)
-            img = np.array(data.load())[:,:,0]
-
-            #print(envi_hdr_path)
-            #if '2020_S1_VV.hdr' in envi_hdr_path :
-            #    img = np.clip(img, -20, -10)
-
-            #elif '2020_S1_VH.hdr' in envi_hdr_path :
-            #    img = np.clip(img, -30, -10)
-
-            #elif 'NDCI.hdr' in envi_hdr_path :
-            #    img = np.clip(img, -0.22, 0)
-
-            #elif 'NDWI.hdr' in envi_hdr_path :
-            #    img = np.clip(img, 0, 1)
-
-            #elif 'scaled_NIR.hdr' in envi_hdr_path :
-            #    img = np.clip(img, 0, 0.3)
-
-            #elif 'scaled_Red.hdr' in envi_hdr_path :
-            #    img = np.clip(img, 0, 0.3)
-            
-            #else:
-            #    print("No Available data")
-
-            if norm:
-                img = band_norm(img, norm_type, False)
-            data_array.append(img)
+        data_array = read_envi(file_path)
 
     # TIFF, TIF type 
     elif any(e in ['.tif', '.tiff'] for e in ext):
-        tiffs_file_path = sorted(glob(os.path.join(file_path, "*.tif")) + 
-                                  glob(os.path.join(file_path, "*.tiff")))
-        with rasterio.open(tiffs_file_path[0]) as src:
-            band_count = src.count  
-            for band in range(1, band_count + 1):
-                img = src.read(band)
-                if norm:
-                    img = band_norm(img, norm_type, False)
-                data_array.append(img)
-        
+        file_num, img = read_tif(file_path)
+        if norm:
+            if isinstance(img, list):
+                img = [band_norm(x, norm_type, False) for x in img]
+            else:
+                img = band_norm(img, norm_type, False)
+
+        if file_num == 1:
+            data_array.append(img)
+        else:
+            data_array = img
+
     # NetCDF type 
     elif '.nc' in ext:
-        nc_file_path = sorted(glob(os.path.join(file_path, "*.nc")))
-        ds = nc.Dataset(nc_file_path[0])
-        band_names = list(ds.variables.keys())[1:-3]
-        for i in range(len(band_names)):
-            band_name = str(band_names[i])
-            img = ds[band_name][:]
-            if norm:
+        file_num, img = read_nc(file_path)
+        if norm:
+            if isinstance(img, list):
+                img = [band_norm(x, norm_type, False) for x in img]
+            else:
                 img = band_norm(img, norm_type, False)
+
+        if file_num == 1:
             data_array.append(img)
-        ds.close()
+        else:
+            data_array = img
 
     else:
         raise ValueError(f"Unsupported file format: {ext}")
 
     return np.array(data_array)
+
+
+
+def histogram_equalization(img: np.ndarray):
+    """
+    Histogram equalize code for numpy array
+    Returns histogram equalized image
+    """    
+    hist_eqaulized_img = []
+
+    for channel in img :
+
+        zero_mask = (channel == 0)
+        
+        if np.all(zero_mask):
+            hist_eqaulized_img.append(channel)
+            continue
+        
+        flat_img = channel.flatten()
+        hist, bins = np.histogram(flat_img[flat_img != 0], bins=256, density=True)      
+        cdf = hist.cumsum()
+        cdf = cdf / cdf[-1]
+
+        result = np.zeros_like(flat_img)
+        mask = (flat_img != 0)
+        result[mask] = np.interp(flat_img[mask], bins[:-1], cdf)
+
+        result = result.reshape(channel.shape)
+        hist_eqaulized_img.append(result)
+    
+    return np.array(hist_eqaulized_img)
 
 
 def remove_noise(

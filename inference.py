@@ -41,7 +41,7 @@ CLASSES = get_data_info("C:\workspace\KOREA_AQUACULTURE_DETECTION\dl_train_data\
     "-M",
     "--model-name",
     type=str,
-    default='resunetplusplus',
+    default='attentunet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
@@ -120,7 +120,15 @@ def main(
     model.load_state_dict(torch.load(model_path))
     model.to(device)
     model.eval()
+    
+    for param in model.parameters():
+        param.requires_grad = False
 
+    for m in model.modules():
+        if isinstance(m, torch.nn.BatchNorm2d):
+            m.track_running_stats = True
+            m.running_mean = m.running_mean.to(device)
+            m.running_var = m.running_var.to(device)
 
     """
     Logging 
@@ -145,12 +153,13 @@ def main(
     pad_length = 16
 
     img_path = os.path.join(data_dir, 'Image')
-    _, image_height, image_width = read_file(img_path, True, 'dynamic_world_norm').shape
+    _, image_height, image_width = read_file(img_path, True, 'linear_norm').shape
 
+    torch.cuda.empty_cache()
     with torch.no_grad():
-        for i, (images, _) in enumerate(inference_dataloader):
+        for _, (images, _) in enumerate(inference_dataloader):
             images = images.to(device)
-            images = images.float()
+            images = images.float()       
 
             pred_probs = model(images)
             if CLASSES == 1:  # Binary Segmentation
@@ -160,8 +169,9 @@ def main(
                 pred_probs = F.softmax(pred_probs, dim=1)
                 pred_mask = torch.argmax(pred_probs, dim=1)    
 
+            pred_mask = pred_mask.permute(0,1,3,2)
             pred_mask_np = pred_mask.cpu().detach().numpy()
-            pred_mask_np = unpad(pred_mask_np, pad_length)
+            pred_mask_np = pred_mask_np[0, :, pad_length:-pad_length, pad_length:-pad_length]  # Unpad
             image_list.append(pred_mask_np)
 
 
@@ -204,14 +214,14 @@ def main(
     mask_to_shp(labeled_image, inference_output_dir, lon_grid, lat_grid)
 
     # Save Hexagon data into Shapefile(Polygon)
-    click.secho(message="🔎 Save Hexagon data...", fg="green")
-    hexbin_path = os.path.join(inference_output_dir, 'Hexbin.shp')
-    mask_to_hexagon(inference_output = restored_img, 
-                    output_path = hexbin_path, 
-                    grid_size = (134, 110), 
-                    bins = [250, 500, 1000, 2500, 5000, 10000, 50000], 
-                    mincnt = 250,
-                    alpha = 0.5)
+    #click.secho(message="🔎 Save Hexagon data...", fg="green")
+    #hexbin_path = os.path.join(inference_output_dir, 'Hexbin.shp')
+    #mask_to_hexagon(inference_output = restored_img, 
+    #                output_path = hexbin_path, 
+    #                grid_size = (134, 110), 
+    #                bins = [250, 500, 1000, 2500, 5000, 10000, 50000], 
+    #                mincnt = 250,
+    #                alpha = 0.5)
 
     # Compare with Manual data
     click.secho(message="🔎 Comparing Images...", fg="green")

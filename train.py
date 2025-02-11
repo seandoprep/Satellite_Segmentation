@@ -2,7 +2,6 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 os.environ['NO_ALBUMENTATIONS_UPDATE']='True'
 
-import csv
 import sys
 import click
 import traceback
@@ -29,7 +28,7 @@ from models.models.attent_unet import AttU_Net
 from loss import DiceLoss, DiceBCELoss, IoULoss, FocalLoss, TverskyLoss
 from utils.util import gpu_test, set_seed, count_parameters, get_data_info
 from utils.metrics import calculate_metrics
-from utils.visualize import visualize_training_log, visualize
+from utils.visualize import visualize
 from datetime import datetime
 from scheduler import CosineAnnealingWarmUpRestarts
 
@@ -48,14 +47,14 @@ else:
     "-M",
     "--model-name",
     type=str,
-    default='resunetplusplus',
+    default='attentunet',
     help="Choose models for Binary Segmentation. unet, deeplabv3plus, resunetplusplus, mdoaunet, u2net, attentunet are now available",
 )
 @click.option(
     "-E",
     "--num-epochs",
     type=int,
-    default=300,
+    default=100,
     help="Number of epochs to train the model for. Default - 100",
 )
 @click.option(
@@ -69,7 +68,7 @@ else:
     "-B",
     "--batch-size",
     type=int,
-    default=8,
+    default=16,
     help="Batch size of data for training. Default - 8",
 )
 @click.option(
@@ -122,8 +121,8 @@ def main(
         click.secho(message=traceback.format_exc(), fg="yellow")
         sys.exit("Non-Existent Data Dir")
 
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=False, drop_last=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=False, drop_last=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True, drop_last=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=True, drop_last=True)
 
 
     """
@@ -168,16 +167,16 @@ def main(
         criterion = nn.CrossEntropyLoss()
         #criterion = nn.BCEWithLogitsLoss()
 
-    #optimizer = optim.AdamW(model.parameters(), lr = learning_rate)
-    optimizer = optim.Adam(model.parameters(), lr = learning_rate)
+    optimizer = optim.AdamW(model.parameters(), lr = learning_rate)
+    #optimizer = optim.Adam(model.parameters(), lr = learning_rate)
     #optimizer = optim.SGD(model.parameters(),lr=learning_rate, momentum=0.9, weight_decay=0.0005)
     
     #scheduler = CosineAnnealingWarmUpRestarts(optimizer, T_0=150, T_mult=1, eta_max=0.1,  T_up=10, gamma=0.5)
-    scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=lambda epoch: 0.95 ** epoch)
-    #scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+    #scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=lambda epoch: 0.95 ** epoch)
+    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
     # For Early-Stopping
-    patience_epochs = 50
+    patience_epochs = 10
     no_improvement_epochs = 0
 
 
@@ -271,11 +270,11 @@ def main(
                     pred_masks = torch.argmax(torch.softmax(pred_probs, dim=1), dim=1)
                     
                 # Visualize train process
-                if epoch % 20 == 0:
-                    visualize(images, pred_masks, true_masks,
-                            img_save_path= train_output_dir,
-                            epoch = str(epoch), iteration = str(iteration),
-                            type='train', num = None, is_binary = is_binary)
+                #if epoch % 20 == 0:
+                #    visualize(images, pred_masks, true_masks,
+                #            img_save_path= train_output_dir,
+                #            epoch = str(epoch), iteration = str(iteration),
+                #            type='train', num = None, is_binary = is_binary)
 
                 iou_train, pixel_accuracy_train, precision_train, recall_train, f1_train = calculate_metrics(
                     pred_masks, true_masks, CLASSES

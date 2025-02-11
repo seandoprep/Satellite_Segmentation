@@ -6,7 +6,7 @@ import torchvision.transforms as transforms
 
 from typing import Any
 from torch.utils.data import Dataset
-from utils.util import pad_crop, read_file, find_arrays_with_object
+from utils.util import process_satellite_data
 
 
 class SatelliteDataset(Dataset):
@@ -20,17 +20,36 @@ class SatelliteDataset(Dataset):
     ) -> None:
         if not os.path.exists(data_dir):
             raise ValueError(f'Provided data_dir: "{data_dir}" does not exist.')
-        
+
         self.data_dir = data_dir
         self.mask_dir = os.path.join(data_dir, "Mask")
         self.image_dir = os.path.join(data_dir, "Image")
-        self.mask_list, self.sampling_indices = pad_crop(read_file(self.mask_dir, True, 'mask_norm'), 224, True, None)
-        self.image_list, _ = pad_crop(read_file(self.image_dir, True, 'linear_norm'), 224, False, self.sampling_indices)
+        self.image_list, self.sampling_indices = process_satellite_data(
+            self.image_dir, 
+            split_size=224, 
+            sampling=True,
+            indices=None,
+            negative_sampling_num=300,
+            hist_equal=True,
+            norm=True,
+            norm_type='linear_norm',
+            save_cropped_data=True,
+        )
+        self.mask_list, _ = process_satellite_data(
+            self.mask_dir, 
+            split_size=224, 
+            sampling=True,
+            indices=self.sampling_indices,
+            negative_sampling_num=300,
+            hist_equal=True,
+            norm=True,
+            norm_type='mask_norm',
+            save_cropped_data=True,
+        )
         self.split = split
         self.val_ratio = val_ratio
         self.test_ratio = test_ratio
         self.transform = transform
-
 
         # Data Split
         num_samples = len(self.image_list)
@@ -48,10 +67,8 @@ class SatelliteDataset(Dataset):
         else:
             raise ValueError("Invalid split value. Use 'train', 'val' or 'test'.")
 
- 
     def __len__(self) -> int:
         return len(self.indices)
-
 
     def __getitem__(self, idx: Any) -> Any:
         img_idx = self.indices[idx]
@@ -87,8 +104,26 @@ class InferenceDataset(Dataset):
         self.data_dir = data_dir
         self.image_dir = os.path.join(data_dir, "Image")
         self.mask_dir = os.path.join(data_dir, "Mask")
-        self.image_list, _ = pad_crop(read_file(self.image_dir, True, 'linear_norm'), 224, False, None)
-        self.mask_list, _ = pad_crop(read_file(self.mask_dir, True, 'mask_norm'), 224, False, None)
+        self.image_list, _ = process_satellite_data(
+            self.image_dir, 
+            split_size=224, 
+            sampling=False,
+            indices=None,
+            negative_sampling_num=None,
+            hist_equal=True,
+            norm=True,
+            norm_type='linear_norm',
+        )
+        self.mask_list, _ = process_satellite_data(
+            self.mask_dir, 
+            split_size=224, 
+            sampling=False,
+            indices=None,
+            negative_sampling_num=None,
+            hist_equal=True,
+            norm=True,
+            norm_type='mask_norm',
+        )
         self.transform = transform
         self.indices = list(range(len(self.image_list)))
 
